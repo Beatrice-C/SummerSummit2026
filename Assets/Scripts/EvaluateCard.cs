@@ -26,8 +26,10 @@ public class EvaluateCard : MonoBehaviour
         "weight and suit symbols? The references may be a different rank than the " +
         "card under inspection, so do not penalise it for showing a different pose, " +
         "costume or level of detail.\n\n" +
-        "Grade generously. This was drawn by hand in about a minute, not printed. A rough " +
-        "sketch that clearly belongs to this deck should score well.";
+        "Grade generously. This was drawn by hand in seconds, not printed. A rough " +
+        "sketch that clearly belongs to this deck should score well.\n\n" +
+        "Both scores are integers from 0 to 100, not out of 10. A real printed " +
+        "card from this deck would score close to 100 on both. Use the full range.";
 
     private void Awake()
     {
@@ -115,8 +117,27 @@ public class EvaluateCard : MonoBehaviour
                             type = "string",
                             @enum = new[] { "hearts","diamonds","clubs","spades","?" }
                         },
-                        legibility = new { type = "integer" },
-                        style_match = new { type = "integer" }
+                        legibility = new
+                        {
+                            type = "integer",
+                            description = "Integer from 0 to 100 for how clearly " +
+                                "the rank and suit can be read. 100 = instantly " +
+                                "and unambiguously readable. 70 = readable with " +
+                                "a moment's effort. 40 = ambiguous, could be " +
+                                "mistaken for another rank. 0 = no rank is " +
+                                "discernible at all. Use the full range."
+                        },
+                        style_match = new
+                        {
+                            type = "integer",
+                            description = "Integer from 0 to 100 for how well the " +
+                                "card matches the deck shown in the reference " +
+                                "images. 100 = indistinguishable from a printed " +
+                                "card in this deck. 70 = obviously hand-drawn but " +
+                                "clearly belongs to this deck. 40 = shares some " +
+                                "elements but would draw a second look. 0 = no " +
+                                "resemblance to this deck. Use the full range."
+                        },
                     },
                     required = new[] { "notes", "rank", "suit", "legibility", "style_match" }
                 }

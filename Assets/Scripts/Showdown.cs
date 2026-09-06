@@ -12,10 +12,10 @@ public class Showdown : MonoBehaviour
     public PokerHandEvaluator evaluator;
 
     [Header("Forgery Thresholds")]
-    [Tooltip("The dealer misreads the card and the player is stuck with whatever rank they thought they saw.")]
+    [Tooltip("Below this, the dealer misreads the card and the player is stuck with whatever rank they thought they saw.")]
     [Range(0, 100)] public int legibilityFloor = 45;
 
-    [Tooltip("The loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
+    [Tooltip("Below this, the loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
     [Range(0, 100)] public int styleFloor = 40;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
