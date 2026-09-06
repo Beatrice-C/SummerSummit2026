@@ -11,10 +11,15 @@ public class PokerUI : MonoBehaviour
     public TextMeshProUGUI phaseText;
     public TextMeshProUGUI timerText;
 
-    public float timeRemaining = 60f;
-    private bool isTimerRunning = true;
-
     public GameObject gameOverPanel;
+
+    public void ShowGameOver()
+    {
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(true);
+        }
+    }
 
     private void Update()
     {
@@ -28,7 +33,15 @@ public class PokerUI : MonoBehaviour
 
         betText.text = $"Bet: ${GameManager.instance.betAmount}";
 
-        HandleCountdownTimer();
+        // the only clock is the drawing window so the timer is blank outside it
+        if (GameManager.instance.DrawingAllowed)
+        {
+            timerText.text = $"{Mathf.CeilToInt(GameManager.instance.DrawingTimeRemaining)}";
+        }
+        else
+        {
+            timerText.text = "";
+        }
 
         if (GameManager.instance.currentPhase == PokerPhase.Showdown)
         {
@@ -44,36 +57,4 @@ public class PokerUI : MonoBehaviour
         }
     }
 
-    private void HandleCountdownTimer()
-    {
-        if (!isTimerRunning)
-            return;
-        
-        if (timeRemaining > 0)
-        {
-            timeRemaining -= Time.deltaTime;
-
-            int minutes = Mathf.FloorToInt(timeRemaining / 60);
-            int seconds = Mathf.FloorToInt(timeRemaining % 60);
-            timerText.text = string.Format("{0}:{1:00}", minutes, seconds);
-        }
-        else
-        {
-            timeRemaining = 0;
-            isTimerRunning = false;
-            timerText.text = "0:00";
-
-            TriggerGameOver();
-        }
-    }
-
-    private void TriggerGameOver()
-    {
-        if (gameOverPanel != null)
-        {
-            gameOverPanel.SetActive(true);
-        }
-
-        Time.timeScale = 0f;
-    }
 }

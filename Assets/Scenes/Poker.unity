@@ -1253,7 +1253,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 542832381}
-  - component: {fileID: 542832382}
   m_Layer: 5
   m_Name: BetBox
   m_TagString: Untagged
@@ -1287,24 +1286,6 @@ RectTransform:
   m_AnchoredPosition: {x: -0.000030517578, y: 50.85495}
   m_SizeDelta: {x: 677.1857, y: 158.2901}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!114 &542832382
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 542832380}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 82830b0d71459e546babe39ce370d155, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::BettingUI
-  betSlider: {fileID: 1417899144}
-  betAmountText: {fileID: 1959060155}
-  submitButton: {fileID: 1186130960}
-  betBox: {fileID: 542832380}
-  minimumBet: 5
-  defaultBet: 150
 --- !u!1 &559515894
 GameObject:
   m_ObjectHideFlags: 0
@@ -1722,8 +1703,9 @@ MonoBehaviour:
   playerWallet: 300
   bot1Wallet: 300
   bot2Wallet: 300
-  pocketDealDuration: 6
-  revealBuffer: 3
+  dealSettleDelay: 1
+  drawingWindow: 20
+  finalDrawingGrace: 3
 --- !u!114 &729462015
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1743,7 +1725,6 @@ MonoBehaviour:
   bot2WalletText: {fileID: 1676628436}
   phaseText: {fileID: 359114584}
   timerText: {fileID: 861488128}
-  timeRemaining: 600
   gameOverPanel: {fileID: 1421495766}
 --- !u!114 &729462016
 MonoBehaviour:
@@ -1774,6 +1755,7 @@ MonoBehaviour:
   duplicateConfidenceFloor: 70
   forgedCardTexture: {fileID: 0}
   forgedCardIndex: -1
+  resultDisplayTime: 4
 --- !u!114 &729462018
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1790,7 +1772,6 @@ MonoBehaviour:
   blankCardPrefab: {fileID: 6462243022253552644, guid: 93b7f5d60e554c54bb8ee95e357b9082, type: 3}
   hoverPromptText: {fileID: 2124912299}
   animationSpeed: 4
-  drawingDuration: 20
 --- !u!114 &729462019
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1832,6 +1813,24 @@ MonoBehaviour:
   model: gemini-3.5-flash-lite
   apiKeys: []
   judgeTemperature: 0.7
+--- !u!114 &729462028
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 729462008}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 82830b0d71459e546babe39ce370d155, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::BettingUI
+  betSlider: {fileID: 1417899144}
+  betAmountText: {fileID: 1959060155}
+  submitButton: {fileID: 1186130960}
+  betBox: {fileID: 542832380}
+  minimumBet: 5
+  defaultBet: 150
 --- !u!1 &849165776
 GameObject:
   m_ObjectHideFlags: 0
@@ -5714,6 +5713,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 6089223669796112708, guid: 9aa470ac017dc5c4a841406dde1da1be, type: 3}
       insertIndex: -1
       addedObject: {fileID: 729462023}
+    - targetCorrespondingSourceObject: {fileID: 6089223669796112708, guid: 9aa470ac017dc5c4a841406dde1da1be, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 729462028}
   m_SourcePrefab: {fileID: 100100000, guid: 9aa470ac017dc5c4a841406dde1da1be, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

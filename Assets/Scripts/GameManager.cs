@@ -29,6 +29,9 @@ public class GameManager : MonoBehaviour
     public int bot2Wallet = 500;
 
     [Header("Round Pacing")]
+    [Tooltip("Pause after the pockets are dealt so the last card lands before the bet box appears.")]
+    public float dealSettleDelay = 0.5f;
+
     [Tooltip("How long the player gets to draw, from after betting to the showdown.")]
     public float drawingWindow = 20f;
 
@@ -37,6 +40,11 @@ public class GameManager : MonoBehaviour
 
     // the player can only draw once the bet is made and the window is open
     public bool DrawingAllowed { get; private set; }
+
+    // seconds left to draw, for the UI to count down
+    public float DrawingTimeRemaining => Mathf.Max(0f, drawingEndTime - Time.time);
+
+    private float drawingEndTime;
 
     private FreeDrawPokerBridge drawingBridge;
 
@@ -78,6 +86,8 @@ public class GameManager : MonoBehaviour
         pot = betAmount * 3;
 
         DrawingAllowed = true;
+        drawingEndTime = Time.time + drawingWindow;
+
         StartCoroutine(RevealCommunityCards());
     }
 
@@ -110,6 +120,9 @@ public class GameManager : MonoBehaviour
     private IEnumerator DealCardsThenBet()
     {
         yield return dealer.DealPockets();
+
+        // the last card is still sliding into place when the dealing coroutine ends
+        yield return new WaitForSeconds(dealSettleDelay);
 
         SetPhase(PokerPhase.PlacingBet);
     }

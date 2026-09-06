@@ -25,6 +25,9 @@ public class Showdown : MonoBehaviour
     [Tooltip("Which slot index in the player's hand holds the forged card. -1 means they played honestly.")]
     public int forgedCardIndex = -1;
 
+    [Tooltip("How long the result stays on screen before the game over panel covers it.")]
+    public float resultDisplayTime = 4f;
+
     private string caughtReason = "";
     private string caughtNotes = "";
 
@@ -92,6 +95,8 @@ public class Showdown : MonoBehaviour
             {
                 Announce(CaughtMessage());
                 GameManager.instance.pot = 0;
+
+                yield return EndGame();
                 yield break;
             }
         }
@@ -152,6 +157,21 @@ public class Showdown : MonoBehaviour
         Announce(result);
 
         GameManager.instance.pot = 0;
+
+        yield return EndGame();
+    }
+
+    // showdown result is the last thing that happens
+    private IEnumerator EndGame()
+    {
+        // let the result be read before the game over panel covers it
+        yield return new WaitForSeconds(resultDisplayTime);
+
+        var ui = FindFirstObjectByType<PokerUI>(); // find the ui in case the scene changed
+        if (ui != null)
+        {
+            ui.ShowGameOver();
+        }
     }
 
     // an evaluator card paired with the card object it came from so we can get texture and owner
