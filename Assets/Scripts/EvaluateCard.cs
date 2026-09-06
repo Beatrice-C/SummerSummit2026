@@ -16,7 +16,7 @@ public class EvaluateCard : MonoBehaviour
     [Tooltip("How much the dealer's read varies. Higher means more misreads on ambiguous drawings.")]
     [Range(0f, 2f)] public float judgeTemperature = 0.7f;
 
-    float apiTimeLimit = 30f;
+    float apiTimeLimit = 15f;
 
     private int keyIndex = 0;
     private int modelIndex = 0;

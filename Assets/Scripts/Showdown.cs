@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using TMPro;
 using CardHouse;
 
 public class Showdown : MonoBehaviour
@@ -32,7 +33,11 @@ public class Showdown : MonoBehaviour
     public int forgedCardIndex = -1;
 
     [Tooltip("How long the result stays on screen before the game over panel covers it.")]
-    public float resultDisplayTime = 4f;
+    public float resultDisplayTime = 1f;
+
+    public TextMeshProUGUI caughtMessageText;
+
+    public float caughtMessageDelay = 0.3f;
 
     private string caughtReason = "";
     private string caughtNotes = "";
@@ -45,7 +50,7 @@ public class Showdown : MonoBehaviour
     // the reason and the dealer's line appear together
     private string CaughtMessage()
     {
-        string message = $"CAUGHT. {caughtReason}";
+        string message = $"{caughtReason}";
 
         if (!string.IsNullOrEmpty(caughtNotes))
         {
@@ -100,7 +105,7 @@ public class Showdown : MonoBehaviour
 
             if (caught)
             {
-                Announce(CaughtMessage());
+                Debug.Log(CaughtMessage());
                 GameManager.instance.pot = 0;
 
                 yield return EndGame(1);
@@ -193,9 +198,18 @@ public class Showdown : MonoBehaviour
             loseScreen.SetActive(true);
         }
         
-        yield return new WaitForSeconds(2f);
+        yield return new WaitForSeconds(0.5f);
         
         overlays[result].SetActive(true);
+
+        // result 1 is the caught ending so the dealer gets the last word a bit later
+        if (result == 1 && caughtMessageText != null)
+        {
+            yield return new WaitForSeconds(caughtMessageDelay);
+
+            caughtMessageText.text = CaughtMessage();
+            caughtMessageText.gameObject.SetActive(true);
+        }
     }
 
     // an evaluator card paired with the card object it came from so we can get texture and owner
