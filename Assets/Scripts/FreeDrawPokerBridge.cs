@@ -296,7 +296,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
             if (IsCanvasBlank())
             {
                 Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
-                CancelDrawing();
+                // CancelDrawing();
             }
             else
             {
