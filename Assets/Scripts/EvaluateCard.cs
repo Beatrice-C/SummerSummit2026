@@ -8,7 +8,7 @@ using Newtonsoft.Json.Linq;
 public class EvaluateCard : MonoBehaviour
 {
     public static EvaluateCard instance;
-    public string model = "gemini-3.1-flash-lite";
+    public string model = "gemini-3.5-flash-lite";
     [SerializeField] private string[] apiKeys;
 
     [Tooltip("How much the dealer's read varies. Higher means more misreads on ambiguous drawings.")]
