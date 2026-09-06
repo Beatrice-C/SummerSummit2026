@@ -55,6 +55,11 @@ public class GameManager : MonoBehaviour
 
         dealer.ResetRound();
 
+        if (Showdown.instance != null)
+        {
+            Showdown.instance.ResetForgery();
+        }
+
         SetPhase(PokerPhase.DealingPockets);
     }
 

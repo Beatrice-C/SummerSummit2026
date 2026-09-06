@@ -56,7 +56,17 @@ public class FreeDrawPokerBridge : MonoBehaviour
         File.WriteAllBytes(finalFile, pngBytes);
         Debug.Log($"PNG Exported to {finalFile}");
 
-        playerHandGroup.MountedCards.Remove(cardToReplace);
+        // if the read fails at showdown the player falls back to the card they drew over
+        PokerCard replacedData = cardToReplace.GetComponent<PokerCard>();
+        int fallbackRank = replacedData != null ? replacedData.Rank : 2;
+        PokerSuit fallbackSuit = replacedData != null ? replacedData.Suit : PokerSuit.Clubs;
+
+        // unmount hands back the slot so the forgery can take the same place in the hand
+        int? slot = playerHandGroup.UnMount(cardToReplace);
+
+        // only true when they drew over an earlier forgery, texture is now safe to release
+        bool replacedPreviousForgery = Showdown.instance != null && Showdown.instance.forgedCardIndex == slot;
+
         Destroy(cardToReplace.gameObject);
 
         GameObject cheatCardClone = Instantiate(blankCardPrefab);
@@ -73,27 +83,34 @@ public class FreeDrawPokerBridge : MonoBehaviour
             150f
         );
 
-        if (pokerDataScript != null && pokerDataScript.Image != null)
+        if (pokerDataScript != null)
         {
-            pokerDataScript.Image.sprite = dynamicDrawingSprite;
+            // write down og card data but will be replaced by the API result if it succeeds
+            PokerCardDefinition drawnDefinition = ScriptableObject.CreateInstance<PokerCardDefinition>();
+            drawnDefinition.Rank = fallbackRank;
+            drawnDefinition.Suit = fallbackSuit;
+            drawnDefinition.Art = dynamicDrawingSprite;
 
-            System.Reflection.PropertyInfo rankProp = typeof(PokerCard).GetProperty("Rank");
-            System.Reflection.PropertyInfo suitProp = typeof(PokerCard).GetProperty("Suit");
+            pokerDataScript.Apply(drawnDefinition);
+            Destroy(drawnDefinition);
 
-            // TODO: Set value of drawn poker card to be what ai interprets
-            if (rankProp != null)
-                rankProp.SetValue(pokerDataScript, 14);
-            
-            if (suitProp != null)
-                suitProp.SetValue(pokerDataScript, PokerSuit.Spades);
-            
             Debug.Log($"Card read in as {pokerDataScript.Rank}, {pokerDataScript.Suit.ToString()}");
         }
 
-        playerHandGroup.Mount(newCardComponent);
+        playerHandGroup.Mount(newCardComponent, slot);
         newCardComponent.SetFacing(CardFacing.FaceUp);
 
-        playerHandGroup.OnGroupChanged?.Invoke();
+        if (Showdown.instance != null)
+        {
+            // destroy og texture if they drew over a previous forgery, so the new one can take its place
+            if (Showdown.instance.forgedCardTexture != null && replacedPreviousForgery)
+                Destroy(Showdown.instance.forgedCardTexture);
+
+            Showdown.instance.forgedCardTexture = runtimeTexture;
+            Showdown.instance.forgedCardIndex = playerHandGroup.MountedCards.IndexOf(newCardComponent);
+
+            Debug.Log($"Forgery placed in hand slot {Showdown.instance.forgedCardIndex}");
+        }
 
         cardToReplace = null;
         
@@ -101,10 +118,6 @@ public class FreeDrawPokerBridge : MonoBehaviour
             StopCoroutine(activeAnimationCoroutine);
 
         activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(drawableCanvas.transform.position, offScreenPos, false));
-
-        // TODO: Duplicate card flipped over
-        //if (Showdown.IsCardDuplicateOnTable(newCardComponent))
-        //    GameManager.instance.dealer.Invoke("TriggerFraudOver", 0.1f);
     }
 
     private void TriggerDrawing(CardHouse.Card selectedCard)

@@ -273,6 +273,7 @@ public class Showdown : MonoBehaviour
         if (verdict.IsUnreadable)
         {
             Debug.Log("[FORGERY CHECK]: Card is unreadable. Player is caught.");
+            caughtReason = "The dealer couldn't tell what that card was meant to be.";
             Announce($"\"{verdict.Notes}\"");
             onCaught(true);
             yield break;
@@ -303,24 +304,39 @@ public class Showdown : MonoBehaviour
             yield break;
         }
 
-        // legible enough but misread -> player is stuck with the misread card
-        if (verdict.Legibility < legibilityFloor)
+        // the card becomes whatever the dealer read it as, cleanly or not
+        var read = verdict.ToCard();
+        if (read != null && forgedCardIndex < playerHand.Count)
         {
-            // try to parse the verdict into a card
-            var misread = verdict.ToCard();
-            if (misread != null && forgedCardIndex < playerHand.Count)
+            if (verdict.Legibility < legibilityFloor)
             {
                 Debug.Log($"[FORGERY CHECK]: Card is misread as {verdict.Rank} of {verdict.Suit}. Player is stuck with the misread card.");
-                // replace the forged card in the player's hand with the misread card
-                playerHand[forgedCardIndex] = misread;
             }
             else
             {
-                Debug.LogWarning($"[FORGERY] Couldn't parse '{verdict.Rank}/{verdict.Suit}'. Leaving the original card in place.");
+                Debug.Log($"[FORGERY CHECK]: Card passes as {verdict.Rank} of {verdict.Suit}.");
             }
+
+            playerHand[forgedCardIndex] = read;
+        }
+        else
+        {
+            Debug.LogWarning($"[FORGERY] Couldn't parse '{verdict.Rank}/{verdict.Suit}'. Leaving the original card in place.");
         }
 
         onCaught(false);
+    }
+
+    // clears the forgery so a new hand doesn't inherit an index pointing at a destroyed card
+    public void ResetForgery()
+    {
+        forgedCardIndex = -1;
+
+        if (forgedCardTexture != null)
+        {
+            Destroy(forgedCardTexture);
+            forgedCardTexture = null;
+        }
     }
 
     private (TableCard, TableCard) PickReferenceCards(List<TableCard> pool)
