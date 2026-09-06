@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using CardHouse;
 using FreeDraw;
 using TMPro;
@@ -18,14 +19,52 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
     private Coroutine activeAnimationCoroutine;
 
+    private bool hoveredCardIsLocked;
+
+    private bool canvasReady;
+
     private void Update()
     {
-        if (hoverPromptText != null&& hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
+        if (drawableCanvas.gameObject.activeSelf)
         {
-            if (cardToReplace != null && !drawableCanvas.gameObject.activeSelf)
+            // if the canvas is open and they click outside it, close it without swapping the card
+            if (canvasReady && Input.GetMouseButtonDown(0) && !IsPointerOverCanvas() && !IsPointerOverUI())
+            {
+                CancelDrawing();
+            }
+        }
+        // if the canvas is closed and they click on a card, open the canvas to draw over it
+        else if (hoverPromptText != null && hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
+        {
+            if (cardToReplace != null && !hoveredCardIsLocked)
                 TriggerDrawing(cardToReplace);
         }
+    }
 
+    private bool IsPointerOverCanvas()
+    {
+        Vector2 pointerWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        return Physics2D.OverlapPoint(pointerWorldPos, drawableCanvas.Drawing_Layers.value) != null;
+    }
+
+    private bool IsPointerOverUI()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+    }
+
+    // closes the canvas so the drawing is discarded
+    private void CancelDrawing()
+    {
+        canvasReady = false;
+        cardToReplace = null;
+
+        if (hoverPromptText != null)
+            hoverPromptText.gameObject.SetActive(false);
+
+        if (activeAnimationCoroutine != null)
+            StopCoroutine(activeAnimationCoroutine);
+
+        activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(drawableCanvas.transform.position, offScreenPos, false));
     }
 
     public void SwapFreeDrawCardIntoHand()
@@ -147,6 +186,9 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
     private System.Collections.IEnumerator SlideCanvasAnimation(Vector3 startPos, Vector3 endPos, bool onOff)
     {
+        // not interactable while it's moving
+        canvasReady = false;
+
         if (onOff)
         {
             drawableCanvas.transform.position = startPos;
@@ -172,10 +214,13 @@ public class FreeDrawPokerBridge : MonoBehaviour
             var col = drawableCanvas.GetComponent<Collider2D>();
             if (col != null)
                 col.enabled = true;
+
+            canvasReady = true;
         }
         else
         {
             drawableCanvas.gameObject.SetActive(false);
+            canvasReady = false;
         }
     }
 
@@ -192,8 +237,25 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
             Vector3 worldPos = targetedCardObject.transform.position;
             hoverPromptText.transform.position = Camera.main.WorldToScreenPoint(worldPos + new Vector3(0, 1.2f, 0));
-            hoverPromptText.text = "Click to draw over this card!";
+            hoverPromptText.text = GetCheatPromptText(cardToReplace);
         }
+    }
+
+    // only one card per hand can be forged but that one can be redrawn as often as they like
+    private string GetCheatPromptText(CardHouse.Card hoveredCard)
+    {
+        int forgedIndex = Showdown.instance != null ? Showdown.instance.forgedCardIndex : -1;
+        hoveredCardIsLocked = false;
+
+        // change hover text depending on if forged a card or not
+        if (forgedIndex < 0)
+            return "Click to draw over this card!";
+
+        if (GameManager.instance.dealer.playerHand.MountedCards.IndexOf(hoveredCard) == forgedIndex)
+            return "Click to redraw this card!";
+
+        hoveredCardIsLocked = true;
+        return "You've already forged a card.";
     }
 
     public void HideCheatPrompt()

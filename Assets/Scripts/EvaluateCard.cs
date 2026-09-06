@@ -11,15 +11,25 @@ public class EvaluateCard : MonoBehaviour
     public string model = "gemini-3.1-flash-lite";
     [SerializeField] private string[] apiKeys;
 
+    [Tooltip("How much the dealer's read varies. Higher means more misreads on ambiguous drawings.")]
+    [Range(0f, 2f)] public float judgeTemperature = 0.8f;
+
     private int keyIndex = 0;
 
     private const string PROMPT =
         "The first two images are real cards from this deck, shown so you can see " +
         "its visual style. The third image is a hand-drawn card of unknown rank.\n\n" +
-        "Identify the third card's rank and suit. Use the corner index (letter and " +
-        "suit symbol) as the primary evidence for rank where one is present. If you " +
-        "genuinely cannot tell what card it is meant to be, return \"?\" rather " +
-        "than guessing.\n\n" +
+        "You are a dealer glancing at a card across a table, not an expert studying " +
+        "it. Read the third card's rank and suit at a glance, the way you would in " +
+        "the middle of a hand. Do not deliberate or reason it out.\n\n" +
+        "If the drawing is ambiguous, commit to whatever it most looks like at first " +
+        "glance and report that, even if you are unsure. Do not hedge toward the " +
+        "safest answer. Use every scrap of evidence: if no suit symbol is clear but " +
+        "the drawing is red, pick hearts or diamonds; if it is black, pick clubs or " +
+        "spades. Report a lower confidence instead of refusing to answer.\n\n" +
+        "Return \"?\" only when you truly cannot name a card at all, such as a " +
+        "scribble or a blank card. Returning \"?\" for either the rank or the suit " +
+        "means the card is rejected outright, so do not use it as a way to hedge.\n\n" +
         "Then rate how convincingly it belongs to this deck. Judge it on the same " +
         "criteria you would use to spot a forgery: does it depict the same kind of " +
         "subject in the same way as the references, with the same palette, line " +
@@ -98,7 +108,7 @@ public class EvaluateCard : MonoBehaviour
             },
             generationConfig = new
             {
-                temperature = 0,
+                temperature = judgeTemperature,
                 responseMimeType = "application/json",
                 responseSchema = new
                 {
@@ -120,12 +130,12 @@ public class EvaluateCard : MonoBehaviour
                         legibility = new
                         {
                             type = "integer",
-                            description = "Integer from 0 to 100 for how clearly " +
-                                "the rank and suit can be read. 100 = instantly " +
-                                "and unambiguously readable. 70 = readable with " +
-                                "a moment's effort. 40 = ambiguous, could be " +
-                                "mistaken for another rank. 0 = no rank is " +
-                                "discernible at all. Use the full range."
+                            description = "Integer from 0 to 100 for how confident " +
+                                "you are in the rank and suit you just reported. " +
+                                "100 = the index was unmistakable. 70 = fairly " +
+                                "sure. 40 = you committed to a guess and it could " +
+                                "easily be another rank. 0 = you could not tell at " +
+                                "all. Be honest when you guessed, and use the full range."
                         },
                         style_match = new
                         {

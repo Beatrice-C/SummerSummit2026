@@ -12,11 +12,8 @@ public class Showdown : MonoBehaviour
     public PokerHandEvaluator evaluator;
 
     [Header("Forgery Thresholds")]
-    [Tooltip("Below this, the dealer misreads the card and the player is stuck with whatever rank they thought they saw.")]
-    [Range(0, 100)] public int legibilityFloor = 45;
-
     [Tooltip("Below this, the loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
-    [Range(0, 100)] public int styleFloor = 35;
+    [Range(0, 100)] public int styleFloor = 15;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
     [Range(0, 100)] public int duplicateConfidenceFloor = 70;
@@ -308,15 +305,7 @@ public class Showdown : MonoBehaviour
         var read = verdict.ToCard();
         if (read != null && forgedCardIndex < playerHand.Count)
         {
-            if (verdict.Legibility < legibilityFloor)
-            {
-                Debug.Log($"[FORGERY CHECK]: Card is misread as {verdict.Rank} of {verdict.Suit}. Player is stuck with the misread card.");
-            }
-            else
-            {
-                Debug.Log($"[FORGERY CHECK]: Card passes as {verdict.Rank} of {verdict.Suit}.");
-            }
-
+            Debug.Log($"[FORGERY CHECK]: Card read as {verdict.Rank} of {verdict.Suit} (confidence {verdict.Legibility}). Player is stuck with that read.");
             playerHand[forgedCardIndex] = read;
         }
         else

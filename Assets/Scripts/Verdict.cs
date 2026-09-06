@@ -8,5 +8,8 @@ public class Verdict
     public int Legibility;
     [JsonProperty("style_match")]
     public int StyleMatch;
-    public bool IsUnreadable => Rank == "?" || string.IsNullOrEmpty(Rank);
+    // a card missing either a rank or a suit isn't a card, so it counts as unreadable
+    public bool IsUnreadable => IsMissing(Rank) || IsMissing(Suit);
+
+    private static bool IsMissing(string field) => field == "?" || string.IsNullOrEmpty(field);
 }
