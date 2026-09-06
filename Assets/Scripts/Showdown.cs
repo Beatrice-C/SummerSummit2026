@@ -182,6 +182,7 @@ public class Showdown : MonoBehaviour
     {
         // let the result be read before the game over panel covers it
         yield return new WaitForSeconds(resultDisplayTime);
+        // yield return new WaitForSeconds(resultDisplayTime);
 
         foreach (GameObject hamster in hamsterSprites)
         {
