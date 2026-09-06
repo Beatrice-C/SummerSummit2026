@@ -17,9 +17,13 @@ public class PokerDealer : MonoBehaviour
 
     private int currentCommunityIndex = 0;
 
+    public List<GameObject> hamsterSprites;
+
     public void ResetRound()
     {
         currentCommunityIndex = 0;
+
+        hamsterSprites[0].SetActive(true);
 
         // the showdown forces the bot hands face up to reveal them, so put them back before dealing again
         HideHand(bot1Hand);
@@ -84,6 +88,8 @@ public class PokerDealer : MonoBehaviour
         DealSingleCard(targetSlot, CardFacing.FaceUp);
 
         currentCommunityIndex++;
+        hamsterSprites[currentCommunityIndex-1].SetActive(false);
+        hamsterSprites[currentCommunityIndex].SetActive(true);
     }
 
     private void DealSingleCard(CardGroup targetGroup, CardFacing groupFacing)
@@ -134,5 +140,4 @@ public class PokerDealer : MonoBehaviour
             settings.ForcedFacing = CardFacing.FaceDown;
         }
     }
-
 }

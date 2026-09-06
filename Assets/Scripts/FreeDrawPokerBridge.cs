@@ -119,7 +119,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
             runtimeTexture,
             new Rect(0, 0, runtimeTexture.width, runtimeTexture.height),
             new Vector2(0.5f, 0.5f),
-            150f
+            225f
         );
 
         if (pokerDataScript != null)
