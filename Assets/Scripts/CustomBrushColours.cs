@@ -15,6 +15,15 @@ public class CustomBrushColours : MonoBehaviour
         defaultSettings.SetMarkerWidth(markerWidth);
     }
 
+    public void SetPenRed()
+    {
+        Color c = Color.red;
+        c.a = defaultSettings.Transparency;
+        defaultSettings.SetMarkerColour(c);
+        defaultSettings.SetMarkerWidth(markerWidth);
+        Drawable.drawable.SetPenBrush();
+    }
+
     public void SetPenBlack()
     {
         Color c = Color.black;
