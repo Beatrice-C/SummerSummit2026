@@ -12,6 +12,7 @@ public class Showdown : MonoBehaviour
     public PokerHandEvaluator evaluator;
 
     [Header("Forgery Thresholds")]
+    [Tooltip("Below this, the dealer calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
     [Range(0, 100)] public int styleFloor = 15;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
