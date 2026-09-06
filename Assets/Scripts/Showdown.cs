@@ -62,7 +62,7 @@ public class Showdown : MonoBehaviour
         {
             result = $"Bot 1 wins ${pot} with a {bot1Rank}";
         }
-        else if (bot1Rank > playerRank && bot1Rank > bot2Rank)
+        else if (bot2Rank > playerRank && bot2Rank > bot1Rank)
         {
             result = $"Bot 2 wins ${pot} with a {bot2Rank}";
         }
@@ -115,5 +115,10 @@ public class Showdown : MonoBehaviour
             }
         }
         return extractedCards;
+    }
+
+    public bool IsCardDuplicateOnTable(CardHouse.Card drawnCard)
+    {
+        return false;
     }
 }
