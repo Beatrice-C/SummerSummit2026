@@ -9,12 +9,14 @@ public class EvaluateCard : MonoBehaviour
 {
     public static EvaluateCard instance;
     [Tooltip("Try models in order until one works.")]
-    public string[] models = { "gemini-3.8-flash", "gemini-3.5-flash-lite", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash" };
+    public string[] models = { "gemini-3.5-flash-lite", "gemini-3.8-flash", "gemini-3.7-flash" };
 
     [SerializeField] private string[] apiKeys;
 
     [Tooltip("How much the dealer's read varies. Higher means more misreads on ambiguous drawings.")]
     [Range(0f, 2f)] public float judgeTemperature = 0.7f;
+
+    float apiTimeLimit = 30f;
 
     private int keyIndex = 0;
     private int modelIndex = 0;
@@ -88,8 +90,18 @@ public class EvaluateCard : MonoBehaviour
         int overloadRetries = 0;
         const int maxOverloadRetries = 3;
 
+        float callStartTime = Time.time;
+
         while (attempts < apiKeys.Length)
         {
+            // the limit only decides whether to start another attempt it never cuts off request
+            float timeLeft = apiTimeLimit - (Time.time - callStartTime);
+            if (timeLeft <= 0f)
+            {
+                Debug.LogWarning($"Gemini out of time after {apiTimeLimit}s, no further attempts.");
+                break;
+            }
+
             using (var request = new UnityWebRequest(URL, "POST"))
             {
                 request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
@@ -97,7 +109,7 @@ public class EvaluateCard : MonoBehaviour
                 request.SetRequestHeader("x-goog-api-key", apiKeys[keyIndex]);
                 request.SetRequestHeader("Content-Type", "application/json");
 
-                Debug.Log($"Gemini request to {models[modelIndex]} with API key {keyIndex} (attempt {attempts + 1}/{apiKeys.Length})");
+                Debug.Log($"Gemini request to {models[modelIndex]} with API key {keyIndex} (attempt {attempts + 1}/{apiKeys.Length}, {timeLeft:F0}s left)");
 
                 yield return request.SendWebRequest();
 
@@ -110,16 +122,23 @@ public class EvaluateCard : MonoBehaviour
                 long code = request.responseCode;
                 Debug.LogWarning($"Gemini {code}: {request.downloadHandler.text}");
 
+                // no http response at all means it timed out or couldn't connect
+                bool noResponse = request.result == UnityWebRequest.Result.ConnectionError;
+
                 // 503/500 = Google's servers are busy
                 // wait a bit and retry the same model, then give up on it and try the next one
-                if (code == 503 || code == 500)
+                if (code == 503 || code == 500 || noResponse)
                 {
                     if (overloadRetries < maxOverloadRetries)
                     {
-                        float wait = Mathf.Pow(2, overloadRetries); // waits 1, 2, 4 seconds
-                        Debug.Log($"Model busy — retrying in {wait}s ({overloadRetries + 1}/{maxOverloadRetries})");
+                        // never wait past the limit
+                        float wait = Mathf.Min(Mathf.Pow(2, overloadRetries), apiTimeLimit - (Time.time - callStartTime));
+                        Debug.Log($"Model busy — retrying in {wait:F0}s ({overloadRetries + 1}/{maxOverloadRetries})");
                         overloadRetries++;
-                        yield return new WaitForSeconds(wait);
+
+                        if (wait > 0f)
+                            yield return new WaitForSeconds(wait);
+
                         continue;
                     }
 
