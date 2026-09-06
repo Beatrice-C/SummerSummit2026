@@ -37,7 +37,7 @@ public class Showdown : MonoBehaviour
 
     public TextMeshProUGUI caughtMessageText;
 
-    public float caughtMessageDelay = 0.3f;
+    public float caughtMessageDelay = 0.1f;
 
     private string caughtReason = "";
     private string caughtNotes = "";
