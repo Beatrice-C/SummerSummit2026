@@ -1,173 +1,141 @@
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.Networking;
-using UnityEngine.UI;
-using CardHouse;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 public class EvaluateCard : MonoBehaviour
 {
-    public string apiURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-flash-lite:generateContent";
-
-    [SerializeField] private string apiKey = "";
     public static EvaluateCard instance;
+    public string model = "gemini-3.1-flash-lite";
+    [SerializeField] private string[] apiKeys;
 
-    private Texture2D placeholderForgery;
-    private Texture2D placeholderReference;
+    private int keyIndex = 0;
+
+    private const string PROMPT =
+        "The first two images are real cards from this deck, shown so you can " +
+        "see its visual style. The third image is a hand-drawn card of unknown " +
+        "rank.\n\n" +
+        "Identify the third card's rank and suit, and rate it. If you genuinely " +
+        "cannot tell what it is meant to be, return \"?\" rather than guessing.\n\n" +
+        "The reference cards may be a different type (number vs face) than the " +
+        "card under inspection. Judge line weight, palette, border treatment and " +
+        "ink texture, not composition density or subject matter.";
 
     private void Awake()
     {
         instance = this;
-        placeholderForgery = CreatePlaceholderTexture(Color.red);
-        placeholderReference = CreatePlaceholderTexture(Color.green);
     }
 
-    public Button sendButton;
+    private string URL => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
 
-    void Start()
+    public IEnumerator Inspect(Texture2D referenceA, Texture2D referenceB, Texture2D forgery, Action<Verdict> done)
     {
-        if (sendButton != null)
+        string body = BuildBody(Convert.ToBase64String(referenceA.EncodeToPNG()), Convert.ToBase64String(referenceB.EncodeToPNG()), Convert.ToBase64String(forgery.EncodeToPNG()));
+
+        int attempts = 0;
+
+        while (attempts < apiKeys.Length)
         {
-            sendButton.onClick.AddListener(() =>
+            using (var request = new UnityWebRequest(URL, "POST"))
             {
-                SendPrompt();
-            });
-        }
-    }
+                request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
+                request.downloadHandler = new DownloadHandlerBuffer();
+                request.SetRequestHeader("x-goog-api-key", apiKeys[keyIndex]);
+                request.SetRequestHeader("Content-Type", "application/json");
 
-    public void SendPrompt()
-    {
-        StartCoroutine(SendRequest(placeholderForgery, placeholderReference, (verdict) =>
-        {
-            Debug.Log("Verdict: " + verdict);
-        }));
-    }
+                yield return request.SendWebRequest();
 
-    private Texture2D CreatePlaceholderTexture(Color color, int size = 4)
-    {
-        Texture2D texture = new Texture2D(size, size);
-        Color[] pixels = new Color[size * size];
-        for (int i = 0; i < pixels.Length; i++)
-        {
-            pixels[i] = color;
-        }
-        texture.SetPixels(pixels);
-        texture.Apply();
-        return texture;
-    }
+                if (request.result == UnityWebRequest.Result.Success)
+                {
+                    done(Parse(request.downloadHandler.text));
+                    yield break;
+                }
 
-    IEnumerator SendRequest(Texture2D forgery, Texture2D reference, System.Action<string> verdict)
-    {
-        string fake = System.Convert.ToBase64String(forgery.EncodeToPNG());
-        string real = System.Convert.ToBase64String(reference.EncodeToPNG());
+                long code = request.responseCode;
+                Debug.LogWarning($"Gemini {code}: {request.downloadHandler.text}");
 
-        string body = BuildPrompt(fake, real);
+                // 429 = quota exhausted, 403 = bad/revoked key, try next api key
+                if (code == 429 || code == 403)
+                {
+                    keyIndex = (keyIndex + 1) % apiKeys.Length;
+                    attempts++;
+                    continue;
+                }
 
-        UnityWebRequest request = new UnityWebRequest(apiURL, "POST");
-        request.uploadHandler = new UploadHandlerRaw(System.Text.Encoding.UTF8.GetBytes(body));
-        request.downloadHandler = new DownloadHandlerBuffer();
-        request.SetRequestHeader("X-goog-api-key", apiKey);
-        request.SetRequestHeader("Content-Type", "application/json");
-
-        yield return request.SendWebRequest();
-
-        if (request.result == UnityWebRequest.Result.Success)
-        {
-            Debug.Log("Response: " + request.downloadHandler.text);
-
-            string json = request.downloadHandler.text;
-            var response = JsonUtility.FromJson<GeminiResponse>(json);
-            if (response != null && response.candidates != null && response.candidates.Length > 0)
-            {
-                verdict(response.candidates[0].content.parts[0].text);
-            }
-            else
-            {
-                Debug.LogError("No candidates returned in Gemini response.");
-                verdict(null);
+                break;
             }
         }
-        else
-        {
-            Debug.LogError("Error: " + request.error + "\n" + request.downloadHandler.text);
-            verdict(null); // local fallback
-        }
+
+        done(null); // runs local fallback
     }
 
-    private string BuildPrompt(string fake, string real)
+    private string BuildBody(string refA, string refB, string forgery)
     {
-        var requestBody = new GeminiRequestBody
+        var body = new
         {
             contents = new[]
             {
-                new RequestContent
+                new
                 {
-                    parts = new[]
+                    parts = new object[]
                     {
-                        new RequestPart { text = "Evaluate the following images and determine if the first image is a forgery compared to the second image. Return 'Forgery' or 'Authentic'." },
-                        new RequestPart { inlineData = new InlineData { mimeType = "image/png", data = fake } },
-                        new RequestPart { inlineData = new InlineData { mimeType = "image/png", data = real } }
+                        new { text = PROMPT },
+                        new { inline_data = new { mime_type = "image/png", data = refA } },
+                        new { inline_data = new { mime_type = "image/png", data = refB } },
+                        new { inline_data = new { mime_type = "image/png", data = forgery } }
                     }
+                }
+            },
+            generationConfig = new
+            {
+                temperature = 0,
+                responseMimeType = "application/json",
+                responseSchema = new
+                {
+                    type = "object",
+                    propertyOrdering = new[] { "notes", "rank", "suit", "legibility", "style_match" },
+                    properties = new
+                    {
+                        notes = new { type = "string" },
+                        rank = new
+                        {
+                            type = "string",
+                            @enum = new[] { "2","3","4","5","6","7","8","9","10","J","Q","K","A","?" }
+                        },
+                        suit = new
+                        {
+                            type = "string",
+                            @enum = new[] { "hearts","diamonds","clubs","spades","?" }
+                        },
+                        legibility = new { type = "integer" },
+                        style_match = new { type = "integer" }
+                    },
+                    required = new[] { "notes", "rank", "suit", "legibility", "style_match" }
                 }
             }
         };
 
-        return JsonUtility.ToJson(requestBody);
+        return JsonConvert.SerializeObject(body, new JsonSerializerSettings
+        {
+            NullValueHandling = NullValueHandling.Ignore
+        });
     }
 
-    [System.Serializable]
-    public class GeminiRequestBody
+    private Verdict Parse(string raw)
     {
-        public RequestContent[] contents;
-    }
-
-    [System.Serializable]
-    public class RequestContent
-    {
-        public RequestPart[] parts;
-    }
-
-    [System.Serializable]
-    public class RequestPart
-    {
-        public string text;
-        public InlineData inlineData;
-    }
-
-    [System.Serializable]
-    public class InlineData
-    {
-        public string mimeType;
-        public string data;
-    }
-
-    [System.Serializable]
-    public class GeminiResponse
-    {
-        public Candidate[] candidates;
-    }
-
-    [System.Serializable]
-    public class Candidate
-    {
-        public ResponseContent content;
-    }
-
-    [System.Serializable]
-    public class ResponseContent
-    {
-        public ResponsePart[] parts;
-    }
-
-    [System.Serializable]
-    public class ResponsePart
-    {
-        public string text;
-    }
-
-    public void CallGemini()
-    {
-        // Call the Gemini API
+        try
+        {
+            // convert gemini output to Verdict class
+            var envelope = JObject.Parse(raw);
+            string inner = envelope["candidates"][0]["content"]["parts"][0]["text"].ToString();
+            return JsonConvert.DeserializeObject<Verdict>(inner);
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Couldn't parse verdict: {e.Message}\n{raw}");
+            return null;
+        }
     }
 }
