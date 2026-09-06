@@ -32,6 +32,8 @@ public class GameManager : MonoBehaviour
     public int turnCost = 30;
     public int riverCost = 40;
 
+    private int currentBetMultiplier = 1;
+
     public int playerWallet = 500;
     public int bot1Wallet = 500;
     public int bot2Wallet = 500;
@@ -49,6 +51,7 @@ public class GameManager : MonoBehaviour
     public void StartNewPokerHand()
     {
         pot = 0;
+        currentBetMultiplier = 1;
 
         dealer.ResetRound();
 
@@ -81,7 +84,7 @@ public class GameManager : MonoBehaviour
         }
         else if (IsBettingPhase())
         {
-            RunAutomatedBotTurns();
+            //RunAutomatedBotTurns();
         }
         else if (currentPhase == PokerPhase.Showdown)
         {
@@ -107,8 +110,30 @@ public class GameManager : MonoBehaviour
         playerWallet -= stayInFee;
         pot += stayInFee;
 
+        currentBetMultiplier = 1;
+
         NextPhase();
     }
+
+    public void PlayerButtonRaise()
+    {
+        currentBetMultiplier = 2;
+        int raisedFee = GetCurrentRoundCost();
+
+        playerWallet -= raisedFee;
+        pot += raisedFee;
+
+        bot1Wallet -= raisedFee;
+        pot += raisedFee;
+
+        bot2Wallet -= raisedFee;
+        pot += raisedFee;
+
+        currentBetMultiplier = 1;
+
+        NextPhase();
+    }
+
 
     private bool IsBettingPhase()
     {
@@ -118,21 +143,22 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    private int GetCurrentRoundCost()
+    public int GetCurrentRoundCost()
     {
+        int baseCost = 0;
         if (currentPhase == PokerPhase.PreFlopBetting)
-            return preFlopCost;
+            baseCost = preFlopCost;
         
         if (currentPhase == PokerPhase.FlopBetting)
-            return flopCost;
+            baseCost = flopCost;
         
         if (currentPhase == PokerPhase.TurnBetting)
-            return turnCost;
+            baseCost = turnCost;
         
         if (currentPhase == PokerPhase.RiverBetting)
-            return riverCost;
+            baseCost = riverCost;
         
-        return 0;
+        return baseCost*currentBetMultiplier;
     }
 
     private void NextPhase()
