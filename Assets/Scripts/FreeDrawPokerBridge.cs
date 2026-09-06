@@ -292,16 +292,16 @@ public class FreeDrawPokerBridge : MonoBehaviour
             drawingTimeRemaining = 0;
             isDrawingTimerRunning = false;
 
-            // an untouched canvas isn't a forgery, so leave whatever was already in the hand alone
-            if (IsCanvasBlank())
-            {
-                Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
-                // CancelDrawing();
-            }
-            else
-            {
-                SwapFreeDrawCardIntoHand();
-            }
+            // if blank canvas, discard the drawing and keep the original card
+            // if (IsCanvasBlank())
+            // {
+            //     Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
+            //     CancelDrawing();
+            // }
+            // else
+            // {
+            //     SwapFreeDrawCardIntoHand();
+            // }
         }
     }
 
