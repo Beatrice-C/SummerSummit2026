@@ -14,14 +14,20 @@ public class EvaluateCard : MonoBehaviour
     private int keyIndex = 0;
 
     private const string PROMPT =
-        "The first two images are real cards from this deck, shown so you can " +
-        "see its visual style. The third image is a hand-drawn card of unknown " +
-        "rank.\n\n" +
-        "Identify the third card's rank and suit, and rate it. If you genuinely " +
-        "cannot tell what it is meant to be, return \"?\" rather than guessing.\n\n" +
-        "The reference cards may be a different type (number vs face) than the " +
-        "card under inspection. Judge line weight, palette, border treatment and " +
-        "ink texture, not composition density or subject matter.";
+        "The first two images are real cards from this deck, shown so you can see " +
+        "its visual style. The third image is a hand-drawn card of unknown rank.\n\n" +
+        "Identify the third card's rank and suit. Use the corner index (letter and " +
+        "suit symbol) as the primary evidence for rank where one is present. If you " +
+        "genuinely cannot tell what card it is meant to be, return \"?\" rather " +
+        "than guessing.\n\n" +
+        "Then rate how convincingly it belongs to this deck. Judge it on the same " +
+        "criteria you would use to spot a forgery: does it depict the same kind of " +
+        "subject in the same way as the references, with the same palette, line " +
+        "weight and suit symbols? The references may be a different rank than the " +
+        "card under inspection, so do not penalise it for showing a different pose, " +
+        "costume or level of detail.\n\n" +
+        "Grade generously. This was drawn by hand in about a minute, not printed. A rough " +
+        "sketch that clearly belongs to this deck should score well.";
 
     private void Awake()
     {
