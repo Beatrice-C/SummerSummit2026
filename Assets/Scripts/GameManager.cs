@@ -4,14 +4,11 @@ using System.Collections;
 // Poker phases in a round
 public enum PokerPhase
 {
+    PlacingBet,
     DealingPockets,
-    PreFlopBetting,
     DealingFlop,
-    FlopBetting,
     DealingTurn,
-    TurnBetting,
     DealingRiver,
-    RiverBetting,
     Showdown
 }
 
@@ -25,33 +22,36 @@ public class GameManager : MonoBehaviour
     public PokerDealer dealer;
 
     public int pot = 0;
-
-    // cost of bets of each round
-    public int preFlopCost = 10;
-    public int flopCost = 20;
-    public int turnCost = 30;
-    public int riverCost = 40;
-
-    private int currentBetMultiplier = 1;
+    public int betAmount = 0;
 
     public int playerWallet = 500;
     public int bot1Wallet = 500;
     public int bot2Wallet = 500;
 
+    [Header("Reveal Pacing")]
+    [Tooltip("Time given for the pocket cards to finish being dealt before the first community card.")]
+    public float pocketDealDuration = 6f;
+
+    [Tooltip("Added on top of the drawing timer, so a full drawing window always fits before the next reveal.")]
+    public float revealBuffer = 3f;
+
+    private FreeDrawPokerBridge drawingBridge;
+
     private void Awake()
     {
         instance = this;
+        drawingBridge = GetComponent<FreeDrawPokerBridge>();
     }
 
     private void Start()
     {
-        StartNewPokerHand();
+        // nothing is dealt until the player places their bet
+        SetPhase(PokerPhase.PlacingBet);
     }
 
     public void StartNewPokerHand()
     {
         pot = 0;
-        currentBetMultiplier = 1;
 
         dealer.ResetRound();
 
@@ -59,6 +59,19 @@ public class GameManager : MonoBehaviour
         {
             Showdown.instance.ResetForgery();
         }
+    }
+
+    public void PlaceBet(int amount)
+    {
+        StartNewPokerHand();
+
+        betAmount = amount;
+
+        // everyone bets the same
+        playerWallet -= betAmount;
+        bot1Wallet -= betAmount;
+        bot2Wallet -= betAmount;
+        pot = betAmount * 3;
 
         SetPhase(PokerPhase.DealingPockets);
     }
@@ -70,26 +83,19 @@ public class GameManager : MonoBehaviour
         if (currentPhase == PokerPhase.DealingPockets)
         {
             dealer.DealPockets();
-            SetPhase(PokerPhase.PreFlopBetting);
+            StartCoroutine(AdvanceRoundAutomatically());
         }
         else if (currentPhase == PokerPhase.DealingFlop)
         {
             dealer.DealFlop();
-            SetPhase(PokerPhase.FlopBetting);
         }
         else if (currentPhase == PokerPhase.DealingTurn)
         {
             dealer.DealCommunityCard();
-            SetPhase(PokerPhase.TurnBetting);
         }
         else if (currentPhase == PokerPhase.DealingRiver)
         {
             dealer.DealCommunityCard();
-            SetPhase(PokerPhase.RiverBetting);
-        }
-        else if (IsBettingPhase())
-        {
-            //RunAutomatedBotTurns();
         }
         else if (currentPhase == PokerPhase.Showdown)
         {
@@ -97,78 +103,29 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    private void RunAutomatedBotTurns()
+    // the dealer reveals a card once a full drawing window has passed, then the window starts over
+    private IEnumerator AdvanceRoundAutomatically()
     {
-        int stayInFee = GetCurrentRoundCost();
+        float revealDelay = GetRevealDelay();
 
-        bot1Wallet -= stayInFee;
-        pot += stayInFee;
+        yield return new WaitForSeconds(pocketDealDuration);
+        SetPhase(PokerPhase.DealingFlop);
 
-        bot2Wallet -= stayInFee;
-        pot += stayInFee;
+        yield return new WaitForSeconds(revealDelay);
+        SetPhase(PokerPhase.DealingTurn);
+
+        yield return new WaitForSeconds(revealDelay);
+        SetPhase(PokerPhase.DealingRiver);
+
+        yield return new WaitForSeconds(revealDelay);
+        SetPhase(PokerPhase.Showdown);
     }
 
-    public void PlayerButtonCall()
+    private float GetRevealDelay()
     {
-        int stayInFee = GetCurrentRoundCost();
-
-        playerWallet -= stayInFee;
-        pot += stayInFee;
-
-        currentBetMultiplier = 1;
-
-        NextPhase();
-    }
-
-    public void PlayerButtonRaise()
-    {
-        currentBetMultiplier = 2;
-        int raisedFee = GetCurrentRoundCost();
-
-        playerWallet -= raisedFee;
-        pot += raisedFee;
-
-        bot1Wallet -= raisedFee;
-        pot += raisedFee;
-
-        bot2Wallet -= raisedFee;
-        pot += raisedFee;
-
-        currentBetMultiplier = 1;
-
-        NextPhase();
-    }
-
-
-    private bool IsBettingPhase()
-    {
-        if (currentPhase == PokerPhase.PreFlopBetting || currentPhase == PokerPhase.FlopBetting || currentPhase == PokerPhase.TurnBetting || currentPhase == PokerPhase.RiverBetting)
-            return true;
-        
-        return false;
-    }
-
-    public int GetCurrentRoundCost()
-    {
-        int baseCost = 0;
-        if (currentPhase == PokerPhase.PreFlopBetting)
-            baseCost = preFlopCost;
-        
-        if (currentPhase == PokerPhase.FlopBetting)
-            baseCost = flopCost;
-        
-        if (currentPhase == PokerPhase.TurnBetting)
-            baseCost = turnCost;
-        
-        if (currentPhase == PokerPhase.RiverBetting)
-            baseCost = riverCost;
-        
-        return baseCost*currentBetMultiplier;
-    }
-
-    private void NextPhase()
-    {
-        SetPhase(currentPhase + 1);
+        // tied to the drawing timer so changing one can never desync the other
+        float drawingDuration = drawingBridge != null ? drawingBridge.drawingDuration : 0f;
+        return drawingDuration + revealBuffer;
     }
 
     private void ResolveWinnerAtShowdown()

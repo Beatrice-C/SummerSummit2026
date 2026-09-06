@@ -5,8 +5,6 @@ public class PokerUI : MonoBehaviour
 {
     public TextMeshProUGUI potText;
     public TextMeshProUGUI betText;
-    public TextMeshProUGUI callText;
-    public TextMeshProUGUI raiseText;
     public TextMeshProUGUI playerWalletText;
     public TextMeshProUGUI bot1WalletText;
     public TextMeshProUGUI bot2WalletText;
@@ -28,23 +26,17 @@ public class PokerUI : MonoBehaviour
         bot1WalletText.text = $"Wallet: ${GameManager.instance.bot1Wallet}";
         bot2WalletText.text = $"Wallet: ${GameManager.instance.bot2Wallet}";
 
-        betText.text = $"Bet: ${300-GameManager.instance.playerWallet}";
+        betText.text = $"Bet: ${GameManager.instance.betAmount}";
 
         HandleCountdownTimer();
 
-        int currentCost = GameManager.instance.GetCurrentRoundCost();
-
         if (GameManager.instance.currentPhase == PokerPhase.Showdown)
         {
-            callText.text = "Call";
-            raiseText.text = "Raise";
             return;
         }
-        else if (currentCost > 0)
+        else if (GameManager.instance.currentPhase == PokerPhase.PlacingBet)
         {
-            phaseText.text = $"Current Fee: ${currentCost}";
-            callText.text = $"Call: ${currentCost}";
-            raiseText.text = $"Raise: ${currentCost*2}";
+            phaseText.text = "Place your bet";
         }
         else
         {

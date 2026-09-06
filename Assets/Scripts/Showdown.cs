@@ -129,14 +129,22 @@ public class Showdown : MonoBehaviour
         }
         else if (bot1Rank > playerRank && bot1Rank > bot2Rank)
         {
+            GameManager.instance.bot1Wallet += pot;
             result = $"Bot 1 wins ${pot} with a {bot1Rank}";
         }
         else if (bot2Rank > playerRank && bot2Rank > bot1Rank)
         {
+            GameManager.instance.bot2Wallet += pot;
             result = $"Bot 2 wins ${pot} with a {bot2Rank}";
         }
         else
         {
+            // everyone bets the same, so a tie means everyone gets their money back
+            int refund = GameManager.instance.betAmount;
+            GameManager.instance.playerWallet += refund;
+            GameManager.instance.bot1Wallet += refund;
+            GameManager.instance.bot2Wallet += refund;
+
             result = $"It's a tie! You had a {playerRank}, bot 1 had {bot1Rank}, and bot 2 had {bot2Rank}";
         }
 
