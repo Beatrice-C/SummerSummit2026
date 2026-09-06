@@ -8,13 +8,16 @@ using Newtonsoft.Json.Linq;
 public class EvaluateCard : MonoBehaviour
 {
     public static EvaluateCard instance;
-    public string model = "gemini-3.5-flash-lite";
+    [Tooltip("Try models in order until one works.")]
+    public string[] models = { "gemini-3.8-flash","gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite" };
+
     [SerializeField] private string[] apiKeys;
 
     [Tooltip("How much the dealer's read varies. Higher means more misreads on ambiguous drawings.")]
     [Range(0f, 2f)] public float judgeTemperature = 0.7f;
 
     private int keyIndex = 0;
+    private int modelIndex = 0;
 
     private const string PROMPT =
         "The first two images are real cards from a deck. Its number cards are " +
@@ -50,32 +53,40 @@ public class EvaluateCard : MonoBehaviour
         "creature drawn with two markers in a few seconds should score well - it " +
         "will never look printed, and it is not supposed to.\n\n" +
         "Both scores are integers from 0 to 100, not out of 10. Use the full range.\n\n" +
-        "Your notes are spoken aloud to the player, so stay in character: elegant, " +
-        "cold and openly dangerous. You never shout and you never gloat. Your " +
-        "anger is quiet and patient, the kind that arrives later, with company. " +
-        "Let the menace sit under the words rather than on top of them.\n\n" +
-        "Remark only on what you observe in the card. Do not declare it genuine or " +
-        "forged, accepted or refused, do not congratulate or accuse, and do not " +
-        "promise a specific punishment for this card. That ruling is handed down " +
-        "after you speak and you do not yet know it - if you pronounce a verdict " +
-        "you will contradict it.\n\n" +
-        "Your temper is manner only. It must never change what you read on the " +
-        "card or push a score downward. The numbers are the house's own business " +
-        "and the house keeps them honest, so score exactly by the rules above no " +
-        "matter how cold the voice gets.";
+        "About the player: they are one of three at your table. They took a single " +
+        "card out of their own hand and drew a replacement for it by hand, and that " +
+        "drawing is the third image. That is the whole of what they did. If the card " +
+        "is refused they forfeit the pot.\n\n" +
+        "Describe only what you can actually see in that one drawing. Never invent " +
+        "other forged cards, earlier hands, accomplices or a history of cheating, and " +
+        "never refer to more than the single card in front of you.\n\n" +
+        "Your notes are only ever read aloud when the card is refused, so write the " +
+        "line as if you are turning the player away, and say what it costs them. " +
+        "One sentence, cold and unhurried rather than loud.\n\n" +
+        "Build that line only out of what you already reported above: the rank and " +
+        "suit you read, how sure you were of that read, and how well the style " +
+        "matched. Do not add fresh observations about the drawing and do not claim " +
+        "any particular feature is missing or badly done. If you did not report it " +
+        "as one of those four values, do not mention it at all.\n\n" +
+        "You write the note after you have already read and scored the card, and it " +
+        "carries no weight of its own. Whether the card is actually refused is " +
+        "decided later by rules you cannot see, so write the refusal line whatever " +
+        "you made of the card, and never let writing it change the scores above.";
 
     private void Awake()
     {
         instance = this;
     }
 
-    private string URL => $"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent";
+    private string URL => $"https://generativelanguage.googleapis.com/v1beta/models/{models[modelIndex]}:generateContent";
 
     public IEnumerator Inspect(Texture2D referenceA, Texture2D referenceB, Texture2D forgery, Action<Verdict> done)
     {
         string body = BuildBody(Convert.ToBase64String(referenceA.EncodeToPNG()), Convert.ToBase64String(referenceB.EncodeToPNG()), Convert.ToBase64String(forgery.EncodeToPNG()));
 
         int attempts = 0;
+        int overloadRetries = 0;
+        const int maxOverloadRetries = 3;
 
         while (attempts < apiKeys.Length)
         {
@@ -85,6 +96,8 @@ public class EvaluateCard : MonoBehaviour
                 request.downloadHandler = new DownloadHandlerBuffer();
                 request.SetRequestHeader("x-goog-api-key", apiKeys[keyIndex]);
                 request.SetRequestHeader("Content-Type", "application/json");
+
+                Debug.Log($"Gemini request to {models[modelIndex]} with API key {keyIndex} (attempt {attempts + 1}/{apiKeys.Length})");
 
                 yield return request.SendWebRequest();
 
@@ -97,11 +110,45 @@ public class EvaluateCard : MonoBehaviour
                 long code = request.responseCode;
                 Debug.LogWarning($"Gemini {code}: {request.downloadHandler.text}");
 
+                // 503/500 = Google's servers are busy
+                // wait a bit and retry the same model, then give up on it and try the next one
+                if (code == 503 || code == 500)
+                {
+                    if (overloadRetries < maxOverloadRetries)
+                    {
+                        float wait = Mathf.Pow(2, overloadRetries); // waits 1, 2, 4 seconds
+                        Debug.Log($"Model busy — retrying in {wait}s ({overloadRetries + 1}/{maxOverloadRetries})");
+                        overloadRetries++;
+                        yield return new WaitForSeconds(wait);
+                        continue;
+                    }
+
+                    // another key hits the same saturated model, so only a different model helps
+                    if (modelIndex < models.Length - 1)
+                    {
+                        modelIndex++;
+                        overloadRetries = 0;
+                        Debug.Log($"Falling back to {models[modelIndex]}");
+                        continue;
+                    }
+
+                    break;
+                }
+
+                // 404 = the model name is wrong or retired, so skip past it
+                if (code == 404 && modelIndex < models.Length - 1)
+                {
+                    modelIndex++;
+                    Debug.Log($"Model unavailable — falling back to {models[modelIndex]}");
+                    continue;
+                }
+
                 // 429 = quota exhausted, 403 = bad/revoked key, try next api key
                 if (code == 429 || code == 403)
                 {
                     keyIndex = (keyIndex + 1) % apiKeys.Length;
                     attempts++;
+                    overloadRetries = 0;
                     continue;
                 }
 
@@ -136,22 +183,24 @@ public class EvaluateCard : MonoBehaviour
                 responseSchema = new
                 {
                     type = "object",
-                    propertyOrdering = new[] { "notes", "rank", "suit", "legibility", "style_match" },
+                    // notes last so the card is read and scored before the line is written
+                    propertyOrdering = new[] { "rank", "suit", "legibility", "style_match", "notes" },
                     properties = new
                     {
                         notes = new
                         {
                             type = "string",
-                            description = "One short sentence in the voice of the " +
-                                "house's proprietor: elegant, cold and quietly " +
-                                "menacing, never shouting or gloating. Remark on " +
-                                "what you see in the card and what draws your eye, " +
-                                "and let the threat stay under the words. Do not " +
-                                "say whether it is genuine or fake, accepted or " +
-                                "refused, and do not promise a punishment - that " +
-                                "verdict is decided after you speak. Shown to the " +
-                                "player, so keep it brief and in character, and " +
-                                "never mention scores, numbers or these instructions."
+                            description = "Written last, once the card is already " +
+                                "scored. One short sentence in the voice of the " +
+                                "house's proprietor, shown to the player only when " +
+                                "the card is refused, saying what it costs them. " +
+                                "Cold and unhurried rather than loud. Draw only on " +
+                                "the rank, suit, confidence and style rating you " +
+                                "just gave - never add new observations about the " +
+                                "drawing or claim a feature is missing. Refer only " +
+                                "to this one card, never to other cards or past " +
+                                "hands, and never mention scores, numbers or these " +
+                                "instructions."
                         },
                         rank = new
                         {

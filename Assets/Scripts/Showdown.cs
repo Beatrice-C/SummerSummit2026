@@ -16,7 +16,7 @@ public class Showdown : MonoBehaviour
     [Range(0, 100)] public int styleFloor = 15;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
-    [Range(0, 100)] public int duplicateConfidenceFloor = 70;
+    [Range(0, 100)] public int duplicateConfidenceFloor = 60;
 
     [Header("Forgery Input")]
     // wire to CardCanvas once it exists
