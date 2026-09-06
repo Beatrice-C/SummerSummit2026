@@ -1,5 +1,6 @@
 using System.IO;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using CardHouse;
 using FreeDraw;
 using TMPro;
@@ -18,20 +19,58 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
     private Coroutine activeAnimationCoroutine;
 
+    private bool hoveredCardIsLocked;
+
+    private bool canvasReady;
     public float drawingDuration = 20f;
     private float drawingTimeRemaining;
     private bool isDrawingTimerRunning = false;
 
     private void Update()
     {
-        if (hoverPromptText != null&& hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
-        {
-            if (cardToReplace != null && !drawableCanvas.gameObject.activeSelf)
-                TriggerDrawing(cardToReplace);
-        }
-
         HandleDrawingTimer();
 
+        if (drawableCanvas.gameObject.activeSelf)
+        {
+            // if the canvas is open and they click outside it, close it without swapping the card
+            if (canvasReady && Input.GetMouseButtonDown(0) && !IsPointerOverCanvas() && !IsPointerOverUI())
+            {
+                CancelDrawing();
+            }
+        }
+        // if the canvas is closed and they click on a card, open the canvas to draw over it
+        else if (hoverPromptText != null && hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
+        {
+            if (cardToReplace != null && !hoveredCardIsLocked)
+                TriggerDrawing(cardToReplace);
+        }
+    }
+
+    private bool IsPointerOverCanvas()
+    {
+        Vector2 pointerWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
+        return Physics2D.OverlapPoint(pointerWorldPos, drawableCanvas.Drawing_Layers.value) != null;
+    }
+
+    private bool IsPointerOverUI()
+    {
+        return EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+    }
+
+    // closes the canvas so the drawing is discarded
+    private void CancelDrawing()
+    {
+        canvasReady = false;
+        cardToReplace = null;
+        isDrawingTimerRunning = false;
+
+        if (hoverPromptText != null)
+            hoverPromptText.gameObject.SetActive(false);
+
+        if (activeAnimationCoroutine != null)
+            StopCoroutine(activeAnimationCoroutine);
+
+        activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(drawableCanvas.transform.position, offScreenPos, false));
     }
 
     public void SwapFreeDrawCardIntoHand()
@@ -62,7 +101,17 @@ public class FreeDrawPokerBridge : MonoBehaviour
         File.WriteAllBytes(finalFile, pngBytes);
         Debug.Log($"PNG Exported to {finalFile}");
 
-        playerHandGroup.MountedCards.Remove(cardToReplace);
+        // if the read fails at showdown the player falls back to the card they drew over
+        PokerCard replacedData = cardToReplace.GetComponent<PokerCard>();
+        int fallbackRank = replacedData != null ? replacedData.Rank : 2;
+        PokerSuit fallbackSuit = replacedData != null ? replacedData.Suit : PokerSuit.Clubs;
+
+        // unmount hands back the slot so the forgery can take the same place in the hand
+        int? slot = playerHandGroup.UnMount(cardToReplace);
+
+        // only true when they drew over an earlier forgery, texture is now safe to release
+        bool replacedPreviousForgery = Showdown.instance != null && Showdown.instance.forgedCardIndex == slot;
+
         Destroy(cardToReplace.gameObject);
 
         GameObject cheatCardClone = Instantiate(blankCardPrefab);
@@ -79,27 +128,34 @@ public class FreeDrawPokerBridge : MonoBehaviour
             150f
         );
 
-        if (pokerDataScript != null && pokerDataScript.Image != null)
+        if (pokerDataScript != null)
         {
-            pokerDataScript.Image.sprite = dynamicDrawingSprite;
+            // write down og card data but will be replaced by the API result if it succeeds
+            PokerCardDefinition drawnDefinition = ScriptableObject.CreateInstance<PokerCardDefinition>();
+            drawnDefinition.Rank = fallbackRank;
+            drawnDefinition.Suit = fallbackSuit;
+            drawnDefinition.Art = dynamicDrawingSprite;
 
-            System.Reflection.PropertyInfo rankProp = typeof(PokerCard).GetProperty("Rank");
-            System.Reflection.PropertyInfo suitProp = typeof(PokerCard).GetProperty("Suit");
+            pokerDataScript.Apply(drawnDefinition);
+            Destroy(drawnDefinition);
 
-            // TODO: Set value of drawn poker card to be what ai interprets
-            if (rankProp != null)
-                rankProp.SetValue(pokerDataScript, 14);
-            
-            if (suitProp != null)
-                suitProp.SetValue(pokerDataScript, PokerSuit.Spades);
-            
             Debug.Log($"Card read in as {pokerDataScript.Rank}, {pokerDataScript.Suit.ToString()}");
         }
 
-        playerHandGroup.Mount(newCardComponent);
+        playerHandGroup.Mount(newCardComponent, slot);
         newCardComponent.SetFacing(CardFacing.FaceUp);
 
-        playerHandGroup.OnGroupChanged?.Invoke();
+        if (Showdown.instance != null)
+        {
+            // destroy og texture if they drew over a previous forgery, so the new one can take its place
+            if (Showdown.instance.forgedCardTexture != null && replacedPreviousForgery)
+                Destroy(Showdown.instance.forgedCardTexture);
+
+            Showdown.instance.forgedCardTexture = runtimeTexture;
+            Showdown.instance.forgedCardIndex = playerHandGroup.MountedCards.IndexOf(newCardComponent);
+
+            Debug.Log($"Forgery placed in hand slot {Showdown.instance.forgedCardIndex}");
+        }
 
         isDrawingTimerRunning = false;
 
@@ -109,10 +165,6 @@ public class FreeDrawPokerBridge : MonoBehaviour
             StopCoroutine(activeAnimationCoroutine);
 
         activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(drawableCanvas.transform.position, offScreenPos, false));
-
-        // TODO: Duplicate card flipped over
-        //if (Showdown.IsCardDuplicateOnTable(newCardComponent))
-        //    GameManager.instance.dealer.Invoke("TriggerFraudOver", 0.1f);
     }
 
     private void TriggerDrawing(CardHouse.Card selectedCard)
@@ -145,6 +197,9 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
     private System.Collections.IEnumerator SlideCanvasAnimation(Vector3 startPos, Vector3 endPos, bool onOff)
     {
+        // not interactable while it's moving
+        canvasReady = false;
+
         if (onOff)
         {
             drawableCanvas.transform.position = startPos;
@@ -170,10 +225,13 @@ public class FreeDrawPokerBridge : MonoBehaviour
             var col = drawableCanvas.GetComponent<Collider2D>();
             if (col != null)
                 col.enabled = true;
+
+            canvasReady = true;
         }
         else
         {
             drawableCanvas.gameObject.SetActive(false);
+            canvasReady = false;
         }
     }
 
@@ -190,8 +248,25 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
             Vector3 worldPos = targetedCardObject.transform.position;
             hoverPromptText.transform.position = Camera.main.WorldToScreenPoint(worldPos + new Vector3(0, 1.2f, 0));
-            hoverPromptText.text = "Click to draw over this card!";
+            hoverPromptText.text = GetCheatPromptText(cardToReplace);
         }
+    }
+
+    // only one card per hand can be forged but that one can be redrawn as often as they like
+    private string GetCheatPromptText(CardHouse.Card hoveredCard)
+    {
+        int forgedIndex = Showdown.instance != null ? Showdown.instance.forgedCardIndex : -1;
+        hoveredCardIsLocked = false;
+
+        // change hover text depending on if forged a card or not
+        if (forgedIndex < 0)
+            return "Click to draw over this card!";
+
+        if (GameManager.instance.dealer.playerHand.MountedCards.IndexOf(hoveredCard) == forgedIndex)
+            return "Click to redraw this card!";
+
+        hoveredCardIsLocked = true;
+        return "You've already forged a card.";
     }
 
     public void HideCheatPrompt()
@@ -217,7 +292,36 @@ public class FreeDrawPokerBridge : MonoBehaviour
             drawingTimeRemaining = 0;
             isDrawingTimerRunning = false;
 
-            SwapFreeDrawCardIntoHand();
+            // an untouched canvas isn't a forgery, so leave whatever was already in the hand alone
+            if (IsCanvasBlank())
+            {
+                Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
+                CancelDrawing();
+            }
+            else
+            {
+                SwapFreeDrawCardIntoHand();
+            }
         }
+    }
+
+    // blank means every pixel is still the colour ResetCanvas painted on open
+    private bool IsCanvasBlank()
+    {
+        SpriteRenderer canvasRenderer = drawableCanvas.GetComponent<SpriteRenderer>();
+        if (canvasRenderer == null || canvasRenderer.sprite == null)
+            return true;
+
+        Color32 resetColour = drawableCanvas.Reset_Colour;
+        Color32[] pixels = canvasRenderer.sprite.texture.GetPixels32();
+
+        foreach (Color32 pixel in pixels)
+        {
+            // compared per channel because Color32 has no == overload and falls back to reflection
+            if (pixel.r != resetColour.r || pixel.g != resetColour.g || pixel.b != resetColour.b || pixel.a != resetColour.a)
+                return false;
+        }
+
+        return true;
     }
 }
