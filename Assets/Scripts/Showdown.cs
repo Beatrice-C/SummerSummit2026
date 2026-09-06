@@ -16,7 +16,7 @@ public class Showdown : MonoBehaviour
     [Range(0, 100)] public int legibilityFloor = 45;
 
     [Tooltip("Below this, the loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
-    [Range(0, 100)] public int styleFloor = 40;
+    [Range(0, 100)] public int styleFloor = 50;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
     [Range(0, 100)] public int duplicateConfidenceFloor = 70;
