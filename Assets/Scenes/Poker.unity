@@ -649,7 +649,7 @@ BoxCollider2D:
   m_SpriteTilingProperty:
     border: {x: 0, y: 0, z: 0, w: 0}
     pivot: {x: 0.5, y: 0.5}
-    oldSize: {x: 1.752, y: 2.432}
+    oldSize: {x: 2.19, y: 3.04}
     newSize: {x: 1.752, y: 2.432}
     adaptiveTilingThreshold: 0.5
     drawMode: 0
@@ -706,7 +706,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_MaskInteraction: 0
-  m_Sprite: {fileID: -5055073636599254821, guid: 0a6f738aefc8cb146815516680d27b86, type: 3}
+  m_Sprite: {fileID: -2720922381176439266, guid: f36a64088f08d1848a1a37daba727548, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -2086,6 +2086,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FreeDrawPokerBridge
   drawableCanvas: {fileID: 199273894}
   blankCardPrefab: {fileID: 6462243022253552644, guid: a207cf14e1692ae40ae602c202c5c29b, type: 3}
+  blankCardTexture: {fileID: 2800000, guid: 2b46370cdcd01224c8f9a4b766f6476f, type: 3}
   hoverPromptText: {fileID: 2124912299}
   animationSpeed: 4
 --- !u!114 &729462019

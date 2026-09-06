@@ -10,6 +10,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
     public Drawable drawableCanvas;
     public GameObject blankCardPrefab;
 
+    public Texture2D blankCardTexture;
     public TextMeshProUGUI hoverPromptText;
     private CardHouse.Card cardToReplace;
 
@@ -168,11 +169,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         if (drawableCanvas != null)
         {
-            Drawable drawableScript = drawableCanvas.GetComponent<Drawable>();
-            if (drawableScript != null)
-            {
-                drawableScript.ResetCanvas();
-            }
+            ResetCanvas();
 
             if (activeAnimationCoroutine != null)
                 StopCoroutine(activeAnimationCoroutine);
@@ -289,20 +286,48 @@ public class FreeDrawPokerBridge : MonoBehaviour
         }
     }
 
-    // blank means every pixel is still the colour ResetCanvas painted on open
-    private bool IsCanvasBlank()
+    private Texture2D CanvasTexture()
     {
         SpriteRenderer canvasRenderer = drawableCanvas.GetComponent<SpriteRenderer>();
-        if (canvasRenderer == null || canvasRenderer.sprite == null)
+        return canvasRenderer != null && canvasRenderer.sprite != null ? canvasRenderer.sprite.texture : null;
+    }
+
+    private void ResetCanvas()
+    {
+        Texture2D canvasTexture = CanvasTexture();
+
+        if (canvasTexture == null)
+            return;
+
+        if (blankCardTexture == null || blankCardTexture.width != canvasTexture.width || blankCardTexture.height != canvasTexture.height)
+        {
+            Debug.LogWarning("[FORGERY] Blank card texture is missing or a different size to the canvas, falling back to a flat wipe.");
+            drawableCanvas.ResetCanvas();
+            return;
+        }
+
+        canvasTexture.SetPixels(blankCardTexture.GetPixels());
+        canvasTexture.Apply();
+    }
+
+    // blank means the canvas still matches the card-shaped art it was reset to
+    private bool IsCanvasBlank()
+    {
+        Texture2D canvasTexture = CanvasTexture();
+
+        if (canvasTexture == null)
             return true;
 
-        Color32 resetColour = drawableCanvas.Reset_Colour;
-        Color32[] pixels = canvasRenderer.sprite.texture.GetPixels32();
+        if (blankCardTexture == null || blankCardTexture.width != canvasTexture.width || blankCardTexture.height != canvasTexture.height)
+            return false;
 
-        foreach (Color32 pixel in pixels)
+        Color32[] blank = blankCardTexture.GetPixels32();
+        Color32[] pixels = canvasTexture.GetPixels32();
+
+        for (int i = 0; i < pixels.Length; i++)
         {
             // compared per channel because Color32 has no == overload and falls back to reflection
-            if (pixel.r != resetColour.r || pixel.g != resetColour.g || pixel.b != resetColour.b || pixel.a != resetColour.a)
+            if (pixels[i].r != blank[i].r || pixels[i].g != blank[i].g || pixels[i].b != blank[i].b || pixels[i].a != blank[i].a)
                 return false;
         }
 
