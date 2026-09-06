@@ -22,14 +22,9 @@ public class FreeDrawPokerBridge : MonoBehaviour
     private bool hoveredCardIsLocked;
 
     private bool canvasReady;
-    public float drawingDuration = 20f;
-    private float drawingTimeRemaining;
-    private bool isDrawingTimerRunning = false;
 
     private void Update()
     {
-        HandleDrawingTimer();
-
         if (drawableCanvas.gameObject.activeSelf)
         {
             // if the canvas is open and they click outside it, close it without swapping the card
@@ -62,7 +57,6 @@ public class FreeDrawPokerBridge : MonoBehaviour
     {
         canvasReady = false;
         cardToReplace = null;
-        isDrawingTimerRunning = false;
 
         if (hoverPromptText != null)
             hoverPromptText.gameObject.SetActive(false);
@@ -157,10 +151,8 @@ public class FreeDrawPokerBridge : MonoBehaviour
             Debug.Log($"Forgery placed in hand slot {Showdown.instance.forgedCardIndex}");
         }
 
-        isDrawingTimerRunning = false;
-
         cardToReplace = null;
-        
+
         if (activeAnimationCoroutine != null)
             StopCoroutine(activeAnimationCoroutine);
 
@@ -173,9 +165,6 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         drawableCanvas.gameObject.SetActive(true);
         hoverPromptText.gameObject.SetActive(false);
-    
-        drawingTimeRemaining = drawingDuration;
-        isDrawingTimerRunning = true;
 
         if (drawableCanvas != null)
         {
@@ -240,6 +229,10 @@ public class FreeDrawPokerBridge : MonoBehaviour
         if (drawableCanvas != null && drawableCanvas.gameObject.activeSelf)
             return;
 
+        // no drawing while the cards are still being dealt, or once the window has closed
+        if (!GameManager.instance.DrawingAllowed)
+            return;
+
         cardToReplace = targetedCardObject.GetComponent<CardHouse.Card>();
 
         if (hoverPromptText != null && cardToReplace != null)
@@ -278,30 +271,21 @@ public class FreeDrawPokerBridge : MonoBehaviour
             hoverPromptText.gameObject.SetActive(false);
     }
 
-    private void HandleDrawingTimer()
+    // called by GameManager when the drawing window closes, just before showdown
+    public void FinishDrawing()
     {
-        if (!isDrawingTimerRunning)
+        if (!drawableCanvas.gameObject.activeSelf)
             return;
 
-        if (drawingTimeRemaining > 0)
+        // if blank canvas, discard the drawing and keep the original card
+        if (IsCanvasBlank())
         {
-            drawingTimeRemaining -= Time.deltaTime;
+            Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
+            CancelDrawing();
         }
         else
         {
-            drawingTimeRemaining = 0;
-            isDrawingTimerRunning = false;
-
-            // if blank canvas, discard the drawing and keep the original card
-            if (IsCanvasBlank())
-            {
-                Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
-                CancelDrawing();
-            }
-            else
-            {
-                SwapFreeDrawCardIntoHand();
-            }
+            SwapFreeDrawCardIntoHand();
         }
     }
 

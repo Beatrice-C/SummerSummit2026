@@ -36,9 +36,10 @@ public class PokerDealer : MonoBehaviour
         }
     }
     
-    public void DealPockets()
+    // returns the running coroutine so waiting for card dealing animation to be finished
+    public Coroutine DealPockets()
     {
-        StartCoroutine(AnimatePocketDeal());
+        return StartCoroutine(AnimatePocketDeal());
     }
 
     private System.Collections.IEnumerator AnimatePocketDeal()

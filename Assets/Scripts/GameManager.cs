@@ -4,8 +4,8 @@ using System.Collections;
 // Poker phases in a round
 public enum PokerPhase
 {
-    PlacingBet,
     DealingPockets,
+    PlacingBet,
     DealingFlop,
     DealingTurn,
     DealingRiver,
@@ -28,12 +28,15 @@ public class GameManager : MonoBehaviour
     public int bot1Wallet = 500;
     public int bot2Wallet = 500;
 
-    [Header("Reveal Pacing")]
-    [Tooltip("Time given for the pocket cards to finish being dealt before the first community card.")]
-    public float pocketDealDuration = 6f;
+    [Header("Round Pacing")]
+    [Tooltip("How long the player gets to draw, from after betting to the showdown.")]
+    public float drawingWindow = 20f;
 
-    [Tooltip("Added on top of the drawing timer, so a full drawing window always fits before the next reveal.")]
-    public float revealBuffer = 3f;
+    [Tooltip("Extra drawing time after the last community card is revealed.")]
+    public float finalDrawingGrace = 3f;
+
+    // the player can only draw once the bet is made and the window is open
+    public bool DrawingAllowed { get; private set; }
 
     private FreeDrawPokerBridge drawingBridge;
 
@@ -45,13 +48,14 @@ public class GameManager : MonoBehaviour
 
     private void Start()
     {
-        // nothing is dealt until the player places their bet
-        SetPhase(PokerPhase.PlacingBet);
+        StartNewPokerHand();
     }
 
     public void StartNewPokerHand()
     {
         pot = 0;
+        betAmount = 0;
+        DrawingAllowed = false;
 
         dealer.ResetRound();
 
@@ -59,12 +63,12 @@ public class GameManager : MonoBehaviour
         {
             Showdown.instance.ResetForgery();
         }
+
+        SetPhase(PokerPhase.DealingPockets);
     }
 
     public void PlaceBet(int amount)
     {
-        StartNewPokerHand();
-
         betAmount = amount;
 
         // everyone bets the same
@@ -73,7 +77,8 @@ public class GameManager : MonoBehaviour
         bot2Wallet -= betAmount;
         pot = betAmount * 3;
 
-        SetPhase(PokerPhase.DealingPockets);
+        DrawingAllowed = true;
+        StartCoroutine(RevealCommunityCards());
     }
 
     public void SetPhase(PokerPhase newPhase)
@@ -82,8 +87,7 @@ public class GameManager : MonoBehaviour
 
         if (currentPhase == PokerPhase.DealingPockets)
         {
-            dealer.DealPockets();
-            StartCoroutine(AdvanceRoundAutomatically());
+            StartCoroutine(DealCardsThenBet());
         }
         else if (currentPhase == PokerPhase.DealingFlop)
         {
@@ -103,29 +107,37 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // the dealer reveals a card once a full drawing window has passed, then the window starts over
-    private IEnumerator AdvanceRoundAutomatically()
+    private IEnumerator DealCardsThenBet()
     {
-        float revealDelay = GetRevealDelay();
+        yield return dealer.DealPockets();
 
-        yield return new WaitForSeconds(pocketDealDuration);
-        SetPhase(PokerPhase.DealingFlop);
-
-        yield return new WaitForSeconds(revealDelay);
-        SetPhase(PokerPhase.DealingTurn);
-
-        yield return new WaitForSeconds(revealDelay);
-        SetPhase(PokerPhase.DealingRiver);
-
-        yield return new WaitForSeconds(revealDelay);
-        SetPhase(PokerPhase.Showdown);
+        SetPhase(PokerPhase.PlacingBet);
     }
 
-    private float GetRevealDelay()
+    // the community cards are revealed across the drawing window and closes just after the last one
+    private IEnumerator RevealCommunityCards()
     {
-        // tied to the drawing timer so changing one can never desync the other
-        float drawingDuration = drawingBridge != null ? drawingBridge.drawingDuration : 0f;
-        return drawingDuration + revealBuffer;
+        // the interval between each community card being revealed is half the drawing window minus the final grace period
+        float interval = Mathf.Max(0f, (drawingWindow - finalDrawingGrace) / 2f);
+
+        SetPhase(PokerPhase.DealingFlop);
+
+        yield return new WaitForSeconds(interval);
+        SetPhase(PokerPhase.DealingTurn);
+
+        yield return new WaitForSeconds(interval);
+        SetPhase(PokerPhase.DealingRiver);
+
+        yield return new WaitForSeconds(finalDrawingGrace);
+
+        DrawingAllowed = false;
+
+        if (drawingBridge != null)
+        {
+            drawingBridge.FinishDrawing();
+        }
+
+        SetPhase(PokerPhase.Showdown);
     }
 
     private void ResolveWinnerAtShowdown()

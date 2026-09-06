@@ -25,6 +25,12 @@ public class BettingUI : MonoBehaviour
         ShowBetAmount(betSlider.value);
     }
 
+    private void Update()
+    {
+        // only ask for a bet once the player can see what they were dealt
+        betBox.SetActive(GameManager.instance.currentPhase == PokerPhase.PlacingBet);
+    }
+
     private void ShowBetAmount(float amount)
     {
         betAmountText.text = $"${Mathf.RoundToInt(amount)}";
@@ -33,7 +39,5 @@ public class BettingUI : MonoBehaviour
     public void ConfirmBet()
     {
         GameManager.instance.PlaceBet(Mathf.RoundToInt(betSlider.value));
-
-        betBox.SetActive(false);
     }
 }
