@@ -2,19 +2,39 @@ using System.IO;
 using UnityEngine;
 using CardHouse;
 using FreeDraw;
+using TMPro;
 
 public class FreeDrawPokerBridge : MonoBehaviour
 {
     public Drawable drawableCanvas;
     public GameObject blankCardPrefab;
 
+    public TextMeshProUGUI hoverPromptText;
+    private CardHouse.Card cardToReplace;
+
+    public float animationSpeed = 4f;
+    private Vector3 onScreenPos = new Vector3(0f, 0f, -2f);
+    private Vector3 offScreenPos = new Vector3(0f, -12f, -2f);
+
+    private Coroutine activeAnimationCoroutine;
+
+    private void Update()
+    {
+        if (hoverPromptText != null&& hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
+        {
+            if (cardToReplace != null && !drawableCanvas.gameObject.activeSelf)
+                TriggerDrawing(cardToReplace);
+        }
+
+    }
+
     public void SwapFreeDrawCardIntoHand()
     {
         CardGroup playerHandGroup = GameManager.instance.dealer.playerHand;
 
-        if (playerHandGroup == null || playerHandGroup.MountedCards.Count == 0)
+        if (playerHandGroup == null || cardToReplace == null || !playerHandGroup.MountedCards.Contains(cardToReplace))
         {
-            Debug.LogWarning("You have no cards in your hand to swap!");
+            Debug.LogWarning("No card selected in your hand to swap!");
             return;
         }
 
@@ -36,7 +56,6 @@ public class FreeDrawPokerBridge : MonoBehaviour
         File.WriteAllBytes(finalFile, pngBytes);
         Debug.Log($"PNG Exported to {finalFile}");
 
-        CardHouse.Card cardToReplace = playerHandGroup.MountedCards[0]; // i think the player has to choose this?
         playerHandGroup.MountedCards.Remove(cardToReplace);
         Destroy(cardToReplace.gameObject);
 
@@ -61,7 +80,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
             System.Reflection.PropertyInfo rankProp = typeof(PokerCard).GetProperty("Rank");
             System.Reflection.PropertyInfo suitProp = typeof(PokerCard).GetProperty("Suit");
 
-            // temp poker data
+            // TODO: Set value of drawn poker card to be what ai interprets
             if (rankProp != null)
                 rankProp.SetValue(pokerDataScript, 14);
             
@@ -76,9 +95,100 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         playerHandGroup.OnGroupChanged?.Invoke();
 
-        Debug.Log("Swapped");
+        cardToReplace = null;
+        
+        if (activeAnimationCoroutine != null)
+            StopCoroutine(activeAnimationCoroutine);
 
+        activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(drawableCanvas.transform.position, offScreenPos, false));
+
+        // TODO: Duplicate card flipped over
         //if (Showdown.IsCardDuplicateOnTable(newCardComponent))
         //    GameManager.instance.dealer.Invoke("TriggerFraudOver", 0.1f);
+    }
+
+    private void TriggerDrawing(CardHouse.Card selectedCard)
+    {
+        cardToReplace = selectedCard;
+
+        drawableCanvas.gameObject.SetActive(true);
+        hoverPromptText.gameObject.SetActive(false);
+
+        if (drawableCanvas != null)
+        {
+            Drawable drawableScript = drawableCanvas.GetComponent<Drawable>();
+            if (drawableScript != null)
+            {
+                drawableScript.ResetCanvas();
+            }
+
+            if (activeAnimationCoroutine != null)
+                StopCoroutine(activeAnimationCoroutine);
+            
+            Vector3 targetCardPosition = selectedCard.transform.position;
+            Vector3 dynamicOnScreenPos = new Vector3(targetCardPosition.x, targetCardPosition.y, -2f);
+
+            activeAnimationCoroutine = StartCoroutine(SlideCanvasAnimation(offScreenPos, dynamicOnScreenPos, true));
+        }
+    }
+
+    private System.Collections.IEnumerator SlideCanvasAnimation(Vector3 startPos, Vector3 endPos, bool onOff)
+    {
+        if (onOff)
+        {
+            drawableCanvas.transform.position = startPos;
+            drawableCanvas.gameObject.SetActive(true);
+
+            var col = drawableCanvas.GetComponent<Collider2D>();
+            if (col != null)
+                col.enabled = false;
+        }
+
+        float timeTracker = 0f;
+        while (timeTracker < 1f)
+        {
+            timeTracker += Time.deltaTime * animationSpeed;
+            drawableCanvas.transform.position = Vector3.Lerp(startPos, endPos, timeTracker);
+            yield return null;
+        }
+
+        drawableCanvas.transform.position = endPos;
+
+        if (onOff)
+        {
+            var col = drawableCanvas.GetComponent<Collider2D>();
+            if (col != null)
+                col.enabled = true;
+        }
+        else
+        {
+            drawableCanvas.gameObject.SetActive(false);
+        }
+    }
+
+    public void ShowCheatPrompt(GameObject targetedCardObject)
+    {
+        if (drawableCanvas != null && drawableCanvas.gameObject.activeSelf)
+            return;
+
+        cardToReplace = targetedCardObject.GetComponent<CardHouse.Card>();
+
+        if (hoverPromptText != null && cardToReplace != null)
+        {
+            hoverPromptText.gameObject.SetActive(true);
+
+            Vector3 worldPos = targetedCardObject.transform.position;
+            hoverPromptText.transform.position = Camera.main.WorldToScreenPoint(worldPos + new Vector3(0, 1.2f, 0));
+            hoverPromptText.text = "Click to draw over this card!";
+        }
+    }
+
+    public void HideCheatPrompt()
+    {
+        if (Input.GetMouseButton(0) || Input.GetMouseButtonDown(0))
+            return;
+        
+        if (hoverPromptText != null) 
+            hoverPromptText.gameObject.SetActive(false);
     }
 }
