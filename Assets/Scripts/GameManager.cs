@@ -168,6 +168,7 @@ public class GameManager : MonoBehaviour
 
     private void ResolveWinnerAtShowdown()
     {
-        Showdown.instance.DetermineWinner();
+        // start coroutine to wait for API response before determining winner
+        StartCoroutine(Showdown.instance.DetermineWinner());
     }
 }
