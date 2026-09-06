@@ -269,12 +269,12 @@ public class Showdown : MonoBehaviour
 
         Debug.Log("[FORGERY CHECK]: Verdict received: " + $"Rank={verdict.Rank}, Suit={verdict.Suit}, Legibility={verdict.Legibility}, StyleMatch={verdict.StyleMatch}, Notes={verdict.Notes}");
         
-        // check if the card is unreadable
+        // check if the card is unreadable aka ?
         if (verdict.IsUnreadable)
         {
-            Debug.Log("[FORGERY CHECK]: Card is unreadable. Player is stuck with the misread card.");
+            Debug.Log("[FORGERY CHECK]: Card is unreadable. Player is caught.");
             Announce($"\"{verdict.Notes}\"");
-            onCaught(false);
+            onCaught(true);
             yield break;
         }
 
