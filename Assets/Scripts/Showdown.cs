@@ -11,6 +11,12 @@ public class Showdown : MonoBehaviour
 
     public PokerHandEvaluator evaluator;
 
+    public GameObject winScreen;
+    public GameObject loseScreen;
+
+    public List<GameObject> hamsterSprites;
+    public List<GameObject> overlays;
+
     [Header("Forgery Thresholds")]
     [Tooltip("Below this, the dealer calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
     [Range(0, 100)] public int styleFloor = 15;
@@ -61,6 +67,7 @@ public class Showdown : MonoBehaviour
 
     public IEnumerator DetermineWinner()
     {
+        int res = -1;
         PokerDealer dealer = GameManager.instance.dealer;
 
         // fetch cards in community pool
@@ -96,7 +103,7 @@ public class Showdown : MonoBehaviour
                 Announce(CaughtMessage());
                 GameManager.instance.pot = 0;
 
-                yield return EndGame();
+                yield return EndGame(1);
                 yield break;
             }
         }
@@ -131,16 +138,19 @@ public class Showdown : MonoBehaviour
         {
             GameManager.instance.playerWallet += pot;
             result = $"You win ${pot} with a {playerRank}";
+            res = 0;
         }
         else if (bot1Rank > playerRank && bot1Rank > bot2Rank)
         {
             GameManager.instance.bot1Wallet += pot;
             result = $"Bot 1 wins ${pot} with a {bot1Rank}";
+            res = 2;
         }
         else if (bot2Rank > playerRank && bot2Rank > bot1Rank)
         {
             GameManager.instance.bot2Wallet += pot;
             result = $"Bot 2 wins ${pot} with a {bot2Rank}";
+            res = 2;
         }
         else
         {
@@ -151,6 +161,7 @@ public class Showdown : MonoBehaviour
             GameManager.instance.bot2Wallet += refund;
 
             result = $"It's a tie! You had a {playerRank}, bot 1 had {bot1Rank}, and bot 2 had {bot2Rank}";
+            res = 3;
         }
 
         Debug.Log($"Winner: {result}");
@@ -158,20 +169,33 @@ public class Showdown : MonoBehaviour
 
         GameManager.instance.pot = 0;
 
-        yield return EndGame();
+        yield return EndGame(res);
     }
 
     // showdown result is the last thing that happens
-    private IEnumerator EndGame()
+    private IEnumerator EndGame(int result)
     {
         // let the result be read before the game over panel covers it
         yield return new WaitForSeconds(resultDisplayTime);
 
-        var ui = FindFirstObjectByType<PokerUI>(); // find the ui in case the scene changed
-        if (ui != null)
+        foreach (GameObject hamster in hamsterSprites)
         {
-            ui.ShowGameOver();
+            hamster.SetActive(false);
         }
+        hamsterSprites[result].SetActive(true);
+
+        if (result == 0)
+        {
+            winScreen.SetActive(true);
+        }
+        else
+        {
+            loseScreen.SetActive(true);
+        }
+        
+        yield return new WaitForSeconds(2f);
+        
+        overlays[result].SetActive(true);
     }
 
     // an evaluator card paired with the card object it came from so we can get texture and owner

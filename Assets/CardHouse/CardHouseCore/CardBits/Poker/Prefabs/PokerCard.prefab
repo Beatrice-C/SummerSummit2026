@@ -332,7 +332,6 @@ GameObject:
   - component: {fileID: 3320165275064857739}
   - component: {fileID: 3024928638207673461}
   - component: {fileID: 9139029649930435944}
-  - component: {fileID: -4018715178225660217}
   m_Layer: 0
   m_Name: PokerCard
   m_TagString: Untagged
@@ -582,18 +581,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   Image: {fileID: 6462243021699527057}
   BackImage: {fileID: 6462243021217859703}
---- !u!114 &-4018715178225660217
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6462243022253552644}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 065413666fd655c4e8853ae0c95c586e, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::CheatTrigger
 --- !u!1 &6462243022722680614
 GameObject:
   m_ObjectHideFlags: 0

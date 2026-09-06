@@ -13,7 +13,6 @@ MonoBehaviour:
   m_Name: LaunchData
   m_EditorClassIdentifier: 
   LaunchedTutorial: 0
-  ActiveScene: Assets/CardHouse/Tutorial/Lessons/8.2 - Multi Board Setup/(8.2) Multi
-    Board Setup.unity
+  ActiveScene: Assets/Scenes/Poker.unity
   OpenScenes:
-  - Assets/CardHouse/Tutorial/Lessons/8.2 - Multi Board Setup/(8.2) Multi Board Setup.unity
+  - Assets/Scenes/Poker.unity
