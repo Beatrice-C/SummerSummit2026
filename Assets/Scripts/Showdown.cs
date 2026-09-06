@@ -12,7 +12,6 @@ public class Showdown : MonoBehaviour
     public PokerHandEvaluator evaluator;
 
     [Header("Forgery Thresholds")]
-    [Tooltip("Below this, the loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
     [Range(0, 100)] public int styleFloor = 15;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
@@ -26,10 +25,24 @@ public class Showdown : MonoBehaviour
     public int forgedCardIndex = -1;
 
     private string caughtReason = "";
+    private string caughtNotes = "";
 
     private void Awake()
     {
         instance = this;
+    }
+
+    // the reason and the dealer's line appear together
+    private string CaughtMessage()
+    {
+        string message = $"CAUGHT. {caughtReason}";
+
+        if (!string.IsNullOrEmpty(caughtNotes))
+        {
+            message += $"\n\"{caughtNotes}\"";
+        }
+
+        return message;
     }
 
     private void Announce(string message)
@@ -76,7 +89,7 @@ public class Showdown : MonoBehaviour
 
             if (caught)
             {
-                Announce($"CAUGHT. {caughtReason}");
+                Announce(CaughtMessage());
                 GameManager.instance.pot = 0;
                 yield break;
             }
@@ -271,7 +284,7 @@ public class Showdown : MonoBehaviour
         {
             Debug.Log("[FORGERY CHECK]: Card is unreadable. Player is caught.");
             caughtReason = "The dealer couldn't tell what that card was meant to be.";
-            Announce($"\"{verdict.Notes}\"");
+            caughtNotes = verdict.Notes;
             onCaught(true);
             yield break;
         }
@@ -285,7 +298,7 @@ public class Showdown : MonoBehaviour
             {
                 Debug.Log("[FORGERY CHECK]: Duplicate card detected. Player is caught.");
                 caughtReason = $"That card is already {tableCards[duplicate].Owner}.";
-                Announce($"\"{verdict.Notes}\"");
+                caughtNotes = verdict.Notes;
                 onCaught(true);
                 yield break;
             }
@@ -296,7 +309,7 @@ public class Showdown : MonoBehaviour
         {
             Debug.Log("[FORGERY CHECK]: Style match below threshold. Player is caught.");
             caughtReason = "The card's style doesn't match the others.";
-            Announce($"\"{verdict.Notes}\"");
+            caughtNotes = verdict.Notes;
             onCaught(true);
             yield break;
         }
@@ -320,6 +333,8 @@ public class Showdown : MonoBehaviour
     public void ResetForgery()
     {
         forgedCardIndex = -1;
+        caughtReason = "";
+        caughtNotes = "";
 
         if (forgedCardTexture != null)
         {
