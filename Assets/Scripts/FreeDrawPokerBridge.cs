@@ -18,6 +18,10 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
     private Coroutine activeAnimationCoroutine;
 
+    public float drawingDuration = 20f;
+    private float drawingTimeRemaining;
+    private bool isDrawingTimerRunning = false;
+
     private void Update()
     {
         if (hoverPromptText != null&& hoverPromptText.gameObject.activeSelf && Input.GetMouseButtonDown(0))
@@ -25,6 +29,8 @@ public class FreeDrawPokerBridge : MonoBehaviour
             if (cardToReplace != null && !drawableCanvas.gameObject.activeSelf)
                 TriggerDrawing(cardToReplace);
         }
+
+        HandleDrawingTimer();
 
     }
 
@@ -95,6 +101,8 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         playerHandGroup.OnGroupChanged?.Invoke();
 
+        isDrawingTimerRunning = false;
+
         cardToReplace = null;
         
         if (activeAnimationCoroutine != null)
@@ -113,6 +121,9 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         drawableCanvas.gameObject.SetActive(true);
         hoverPromptText.gameObject.SetActive(false);
+    
+        drawingTimeRemaining = drawingDuration;
+        isDrawingTimerRunning = true;
 
         if (drawableCanvas != null)
         {
@@ -190,5 +201,23 @@ public class FreeDrawPokerBridge : MonoBehaviour
         
         if (hoverPromptText != null) 
             hoverPromptText.gameObject.SetActive(false);
+    }
+
+    private void HandleDrawingTimer()
+    {
+        if (!isDrawingTimerRunning)
+            return;
+
+        if (drawingTimeRemaining > 0)
+        {
+            drawingTimeRemaining -= Time.deltaTime;
+        }
+        else
+        {
+            drawingTimeRemaining = 0;
+            isDrawingTimerRunning = false;
+
+            SwapFreeDrawCardIntoHand();
+        }
     }
 }
