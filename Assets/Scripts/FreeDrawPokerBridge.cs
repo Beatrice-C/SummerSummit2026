@@ -22,9 +22,14 @@ public class FreeDrawPokerBridge : MonoBehaviour
     private bool hoveredCardIsLocked;
 
     private bool canvasReady;
+    public float drawingDuration = 20f;
+    private float drawingTimeRemaining;
+    private bool isDrawingTimerRunning = false;
 
     private void Update()
     {
+        HandleDrawingTimer();
+
         if (drawableCanvas.gameObject.activeSelf)
         {
             // if the canvas is open and they click outside it, close it without swapping the card
@@ -57,6 +62,7 @@ public class FreeDrawPokerBridge : MonoBehaviour
     {
         canvasReady = false;
         cardToReplace = null;
+        isDrawingTimerRunning = false;
 
         if (hoverPromptText != null)
             hoverPromptText.gameObject.SetActive(false);
@@ -151,6 +157,8 @@ public class FreeDrawPokerBridge : MonoBehaviour
             Debug.Log($"Forgery placed in hand slot {Showdown.instance.forgedCardIndex}");
         }
 
+        isDrawingTimerRunning = false;
+
         cardToReplace = null;
         
         if (activeAnimationCoroutine != null)
@@ -165,6 +173,9 @@ public class FreeDrawPokerBridge : MonoBehaviour
 
         drawableCanvas.gameObject.SetActive(true);
         hoverPromptText.gameObject.SetActive(false);
+    
+        drawingTimeRemaining = drawingDuration;
+        isDrawingTimerRunning = true;
 
         if (drawableCanvas != null)
         {
@@ -265,5 +276,52 @@ public class FreeDrawPokerBridge : MonoBehaviour
         
         if (hoverPromptText != null) 
             hoverPromptText.gameObject.SetActive(false);
+    }
+
+    private void HandleDrawingTimer()
+    {
+        if (!isDrawingTimerRunning)
+            return;
+
+        if (drawingTimeRemaining > 0)
+        {
+            drawingTimeRemaining -= Time.deltaTime;
+        }
+        else
+        {
+            drawingTimeRemaining = 0;
+            isDrawingTimerRunning = false;
+
+            // an untouched canvas isn't a forgery, so leave whatever was already in the hand alone
+            if (IsCanvasBlank())
+            {
+                Debug.Log("Drawing time ran out on a blank canvas, keeping the original card.");
+                CancelDrawing();
+            }
+            else
+            {
+                SwapFreeDrawCardIntoHand();
+            }
+        }
+    }
+
+    // blank means every pixel is still the colour ResetCanvas painted on open
+    private bool IsCanvasBlank()
+    {
+        SpriteRenderer canvasRenderer = drawableCanvas.GetComponent<SpriteRenderer>();
+        if (canvasRenderer == null || canvasRenderer.sprite == null)
+            return true;
+
+        Color32 resetColour = drawableCanvas.Reset_Colour;
+        Color32[] pixels = canvasRenderer.sprite.texture.GetPixels32();
+
+        foreach (Color32 pixel in pixels)
+        {
+            // compared per channel because Color32 has no == overload and falls back to reflection
+            if (pixel.r != resetColour.r || pixel.g != resetColour.g || pixel.b != resetColour.b || pixel.a != resetColour.a)
+                return false;
+        }
+
+        return true;
     }
 }

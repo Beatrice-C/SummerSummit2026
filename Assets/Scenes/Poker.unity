@@ -1620,6 +1620,7 @@ MonoBehaviour:
   blankCardPrefab: {fileID: 6462243022253552644, guid: 93b7f5d60e554c54bb8ee95e357b9082, type: 3}
   hoverPromptText: {fileID: 2124912299}
   animationSpeed: 4
+  drawingDuration: 20
 --- !u!114 &729462019
 MonoBehaviour:
   m_ObjectHideFlags: 0
