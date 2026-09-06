@@ -16,7 +16,7 @@ public class Showdown : MonoBehaviour
     [Range(0, 100)] public int legibilityFloor = 45;
 
     [Tooltip("Below this, the loan shark calls it a fake. This affects the dealer recognition difficulty, lower is more forgiving.")]
-    [Range(0, 100)] public int styleFloor = 50;
+    [Range(0, 100)] public int styleFloor = 35;
 
     [Tooltip("Only trust a duplicate catch if the read was at least this confident, so a bad misread can't frame the player.")]
     [Range(0, 100)] public int duplicateConfidenceFloor = 70;
@@ -47,26 +47,35 @@ public class Showdown : MonoBehaviour
 
     public IEnumerator DetermineWinner()
     {
-        List<EvaluatorCard> communityPool = new List<EvaluatorCard>();
-        // the community cards as game objects to get their textures for forgery check
-        List<Card> communityCardObjects = new List<Card>();
+        PokerDealer dealer = GameManager.instance.dealer;
 
         // fetch cards in community pool
-        foreach (CardGroup slot in GameManager.instance.dealer.communitySlots)
+        List<TableCard> communityCards = new List<TableCard>();
+        foreach (CardGroup slot in dealer.communitySlots)
         {
-            communityPool.AddRange(ExtractCards(slot));
-            communityCardObjects.AddRange(slot.MountedCards);
+            communityCards.AddRange(ExtractCards(slot, "on the table"));
         }
 
-        // fetch cards in each player's hand and add the community pool to create 5-card hand
-        List<EvaluatorCard> playerHand = ExtractCards(GameManager.instance.dealer.playerHand);
+        // fetch cards in each player's hand
+        List<TableCard> playerCards = ExtractCards(dealer.playerHand, "in your hand");
+        List<TableCard> bot1Cards = ExtractCards(dealer.bot1Hand, "in Bot 1's hand");
+        List<TableCard> bot2Cards = ExtractCards(dealer.bot2Hand, "in Bot 2's hand");
+
+        // flip every card before judging
+        // has wait to let card flip animation finish
+        yield return RevealTable();
+
+        List<EvaluatorCard> communityPool = communityCards.Select(t => t.Data).ToList();
+        List<EvaluatorCard> playerHand = playerCards.Select(t => t.Data).ToList();
 
         // forgery check
         if (forgedCardIndex >= 0 && forgedCardTexture != null)
         {
             bool caught = false;
 
-            yield return CheckForgery(playerHand, communityPool, communityCardObjects, result => caught = result);
+            List<TableCard> tableCards = BuildTablePool(communityCards, playerCards, bot1Cards, bot2Cards);
+
+            yield return CheckForgery(playerHand, tableCards, result => caught = result);
 
             if (caught)
             {
@@ -76,12 +85,13 @@ public class Showdown : MonoBehaviour
             }
         }
 
+        // add the community pool to each hand to create 5-card hands
         playerHand.AddRange(communityPool);
-        
-        List<EvaluatorCard> bot1Hand = ExtractCards(GameManager.instance.dealer.bot1Hand);
+
+        List<EvaluatorCard> bot1Hand = bot1Cards.Select(t => t.Data).ToList();
         bot1Hand.AddRange(communityPool);
-        
-        List<EvaluatorCard> bot2Hand = ExtractCards(GameManager.instance.dealer.bot2Hand);
+
+        List<EvaluatorCard> bot2Hand = bot2Cards.Select(t => t.Data).ToList();
         bot2Hand.AddRange(communityPool);
 
         Debug.Log($"[DIAGNOSTIC]: Community cards collected count: {communityPool.Count}");
@@ -96,9 +106,6 @@ public class Showdown : MonoBehaviour
         PokerHandEvaluator.HandRank playerRank = evaluator.EvaluateHand(playerHand);
         PokerHandEvaluator.HandRank bot1Rank = evaluator.EvaluateHand(bot1Hand);
         PokerHandEvaluator.HandRank bot2Rank = evaluator.EvaluateHand(bot2Hand);
-
-        GameManager.instance.dealer.RevealHand(GameManager.instance.dealer.bot1Hand);
-        GameManager.instance.dealer.RevealHand(GameManager.instance.dealer.bot2Hand);
 
         int pot = GameManager.instance.pot;
         string result = "";
@@ -128,10 +135,75 @@ public class Showdown : MonoBehaviour
         GameManager.instance.pot = 0;
     }
 
-    // fetches cards from card group (eg hand or slot)
-    private List<EvaluatorCard> ExtractCards(CardGroup cardGroup)
+    // an evaluator card paired with the card object it came from so we can get texture and owner
+    private struct TableCard
     {
-        List<EvaluatorCard> extractedCards = new List<EvaluatorCard>();
+        public EvaluatorCard Data;
+        public Card Obj;
+        public string Owner;
+
+        public TableCard(EvaluatorCard data, Card obj, string owner)
+        {
+            Data = data;
+            Obj = obj;
+            Owner = owner;
+        }
+    }
+
+    // flip every card face up while the verdict is calculated
+    private IEnumerator RevealTable()
+    {
+        PokerDealer dealer = GameManager.instance.dealer;
+
+        RevealGroup(dealer.bot1Hand);
+        RevealGroup(dealer.bot2Hand);
+
+        // give the flip animation time to finish before anything else happens
+        yield return new WaitForSeconds(0.4f);
+    }
+
+    private void RevealGroup(CardGroup group)
+    {
+        if (group == null)
+        {
+            return;
+        }
+
+        // force card group to face up
+        CardGroupSettings settings = group.GetComponent<CardGroupSettings>();
+        if (settings != null)
+        {
+            settings.ForcedFacing = CardFacing.FaceUp;
+        }
+
+        GameManager.instance.dealer.RevealHand(group);
+    }
+
+    // every real card on the table minus the forgery
+    private List<TableCard> BuildTablePool(List<TableCard> communityCards, List<TableCard> playerCards, List<TableCard> bot1Cards, List<TableCard> bot2Cards)
+    {
+        List<TableCard> pool = new List<TableCard>();
+
+        pool.AddRange(communityCards);
+        pool.AddRange(bot1Cards);
+        pool.AddRange(bot2Cards);
+
+        // add player cards except the forged one
+        for (int i = 0; i < playerCards.Count; i++)
+        {
+            if (i != forgedCardIndex)
+            {
+                pool.Add(playerCards[i]);
+            }
+        }
+
+        return pool;
+    }
+
+    // fetches cards from card group (eg hand or slot)
+    private List<TableCard> ExtractCards(CardGroup cardGroup, string owner)
+    {
+        List<TableCard> extractedCards = new List<TableCard>();
 
         if (cardGroup != null)
         {
@@ -155,20 +227,27 @@ public class Showdown : MonoBehaviour
                     else if (cardData.Suit == PokerSuit.Clubs) evaluatorSuit = Suit.Clubs;
                     else if (cardData.Suit == PokerSuit.Spades) evaluatorSuit = Suit.Spades;
 
-                    extractedCards.Add(new EvaluatorCard(evaluatorSuit, evaluatorRank));
+                    extractedCards.Add(new TableCard(new EvaluatorCard(evaluatorSuit, evaluatorRank), liveCard, owner));
                 }
             }
         }
         return extractedCards;
     }
 
-    private IEnumerator CheckForgery(List<EvaluatorCard> playerHand, List<EvaluatorCard> communityPool, List<Card> communityCardObjects, Action<bool> onCaught)
+    private IEnumerator CheckForgery(List<EvaluatorCard> playerHand, List<TableCard> tableCards, Action<bool> onCaught)
     {
-        // find the two cards in the community pool to use as references for the forgery check
-        var (indexA, indexB) = PickReferenceCards(communityPool);
+        if (tableCards.Count < 2)
+        {
+            Debug.LogWarning("[DIAGNOSTIC]: Forgery check skipped, not enough cards on the table to compare against.");
+            onCaught(false);
+            yield break;
+        }
 
-        Texture2D refA = GetCardTexture(communityCardObjects[indexA]);
-        Texture2D refB = GetCardTexture(communityCardObjects[indexB]);
+        // find two cards from anywhere on the table to use as references for the forgery check
+        var (referenceA, referenceB) = PickReferenceCards(tableCards);
+
+        Texture2D refA = GetCardTexture(referenceA.Obj);
+        Texture2D refB = GetCardTexture(referenceB.Obj);
 
         if (refA == null || refB == null || forgedCardTexture == null)
         {
@@ -199,21 +278,26 @@ public class Showdown : MonoBehaviour
             yield break;
         }
 
-        // check if the card is a duplicate on a confident read
-        if (verdict.Legibility >= duplicateConfidenceFloor && communityPool.Exists(c => c.Matches(verdict)))
+        // check if the card is a duplicate of any card on the table, if it's legible enough
+        if (verdict.Legibility >= duplicateConfidenceFloor)
         {
-            Debug.Log("[FORGERY CHECK]: Duplicate card detected. Player is caught.");
-            Announce("That card is already on the table.");
-            Announce($"\"{verdict.Notes}\"");
-            onCaught(true);
-            yield break;
+            int duplicate = tableCards.FindIndex(t => t.Data.Matches(verdict));
+
+            if (duplicate >= 0)
+            {
+                Debug.Log("[FORGERY CHECK]: Duplicate card detected. Player is caught.");
+                caughtReason = $"That card is already {tableCards[duplicate].Owner}.";
+                Announce($"\"{verdict.Notes}\"");
+                onCaught(true);
+                yield break;
+            }
         }
 
         // check style
         if (verdict.StyleMatch < styleFloor)
         {
             Debug.Log("[FORGERY CHECK]: Style match below threshold. Player is caught.");
-            Announce("The card's style doesn't match the others.");
+            caughtReason = "The card's style doesn't match the others.";
             Announce($"\"{verdict.Notes}\"");
             onCaught(true);
             yield break;
@@ -224,7 +308,7 @@ public class Showdown : MonoBehaviour
         {
             // try to parse the verdict into a card
             var misread = verdict.ToCard();
-            if (misread != null)
+            if (misread != null && forgedCardIndex < playerHand.Count)
             {
                 Debug.Log($"[FORGERY CHECK]: Card is misread as {verdict.Rank} of {verdict.Suit}. Player is stuck with the misread card.");
                 // replace the forged card in the player's hand with the misread card
@@ -239,32 +323,34 @@ public class Showdown : MonoBehaviour
         onCaught(false);
     }
 
-    private (int, int) PickReferenceCards(List<EvaluatorCard> pool)
+    private (TableCard, TableCard) PickReferenceCards(List<TableCard> pool)
     {
         // prefer a face card and a number card if possible, otherwise just take the first two
-        int face = pool.FindIndex(c => c.IsFace());
-        int num  = pool.FindIndex(c => !c.IsFace());
+        int face = pool.FindIndex(t => t.Data.IsFace());
+        int num  = pool.FindIndex(t => !t.Data.IsFace());
 
         if (face >= 0 && num >= 0)
         {
-            return (face, num);
+            return (pool[face], pool[num]);
         }
         else
         {
-            return (0, Mathf.Min(1, pool.Count - 1)); // calculate second index safely in case there's only one card
+            return (pool[0], pool[1]);
         }
     }
 
     private Texture2D GetCardTexture(Card card)
     {
-        var obj = card.GetComponentInChildren<SpriteRenderer>();
-        if (obj == null || obj.sprite == null)
+        // read the front texture of the card
+        PokerCard cardData = card.GetComponent<PokerCard>();
+        if (cardData == null || cardData.Image == null || cardData.Image.sprite == null)
         {
             return null;
         }
 
-        Sprite sprite = obj.sprite;
+        Sprite sprite = cardData.Image.sprite;
 
+        // crop the sprite so we only get the card face, not the whole texture
         try
         {
             var rect = sprite.textureRect;

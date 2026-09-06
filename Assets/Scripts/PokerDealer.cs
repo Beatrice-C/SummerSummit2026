@@ -21,6 +21,10 @@ public class PokerDealer : MonoBehaviour
     {
         currentCommunityIndex = 0;
 
+        // the showdown forces the bot hands face up to reveal them, so put them back before dealing again
+        HideHand(bot1Hand);
+        HideHand(bot2Hand);
+
         foreach (CardGroup slot in communitySlots)
         {
             Collider2D slotCollider = slot.GetComponent<Collider2D>();
@@ -111,10 +115,22 @@ public class PokerDealer : MonoBehaviour
     {
         if (handLayout == null)
             return;
-        
+
         foreach (CardHouse.Card card in handLayout.MountedCards)
         {
             card.SetFacing(CardFacing.FaceUp);
+        }
+    }
+
+    private void HideHand(CardGroup handLayout)
+    {
+        if (handLayout == null)
+            return;
+
+        CardGroupSettings settings = handLayout.GetComponent<CardGroupSettings>();
+        if (settings != null)
+        {
+            settings.ForcedFacing = CardFacing.FaceDown;
         }
     }
 
