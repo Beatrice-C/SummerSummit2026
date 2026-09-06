@@ -2085,7 +2085,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FreeDrawPokerBridge
   drawableCanvas: {fileID: 199273894}
-  blankCardPrefab: {fileID: 6462243022253552644, guid: 93b7f5d60e554c54bb8ee95e357b9082, type: 3}
+  blankCardPrefab: {fileID: 6462243022253552644, guid: a207cf14e1692ae40ae602c202c5c29b, type: 3}
   hoverPromptText: {fileID: 2124912299}
   animationSpeed: 4
 --- !u!114 &729462019
@@ -2130,6 +2130,7 @@ MonoBehaviour:
   - gemini-3.5-flash-lite
   - gemini-3.8-flash
   - gemini-3.7-flash
+  apiKeys: []
   judgeTemperature: 0.7
 --- !u!114 &729462028
 MonoBehaviour:
@@ -3342,7 +3343,6 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0.5, y: 0.5}
   m_AnchorMax: {x: 0.5, y: 0.5}
-  m_AnchoredPosition: {x: 36, y: -288}
   m_AnchoredPosition: {x: 36, y: -347}
   m_SizeDelta: {x: 847.7325, y: 320.9574}
   m_Pivot: {x: 0.5, y: 0.5}
