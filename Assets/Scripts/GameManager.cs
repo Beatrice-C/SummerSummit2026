@@ -33,10 +33,10 @@ public class GameManager : MonoBehaviour
     public float dealSettleDelay = 0.5f;
 
     [Tooltip("How long the player gets to draw, from after betting to the showdown.")]
-    public float drawingWindow = 20f;
+    public float drawingWindow = 30f;
 
     [Tooltip("Extra drawing time after the last community card is revealed.")]
-    public float finalDrawingGrace = 3f;
+    public float finalDrawingGrace = 5f;
 
     // the player can only draw once the bet is made and the window is open
     public bool DrawingAllowed { get; private set; }

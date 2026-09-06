@@ -432,8 +432,9 @@ public class Showdown : MonoBehaviour
             cropped.Apply();
             return cropped;
         }
-        catch (UnityException)
+        catch (Exception)
         {
+            // GetPixels throws ArgumentException, not UnityException, so catch broadly or it escapes the coroutine
             Debug.LogError($"[FORGERY] '{sprite.texture.name}' isn't readable. Tick Read/Write Enabled in its import settings.");
             return null;
         }

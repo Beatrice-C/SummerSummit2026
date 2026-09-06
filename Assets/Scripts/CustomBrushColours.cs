@@ -5,9 +5,9 @@ public class CustomBrushColours : MonoBehaviour
 {
     public DrawingSettings defaultSettings;
 
-    public static int markerWidth = 1;
+    public static int markerWidth = 2;
 
-    public static int eraserWidth = 3;
+    public static int eraserWidth = 4;
 
     private void Start()
     {
