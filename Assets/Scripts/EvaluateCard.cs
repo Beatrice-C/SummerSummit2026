@@ -151,7 +151,12 @@ public class EvaluateCard : MonoBehaviour
                         continue;
                     }
 
-                    break;
+                    keyIndex = (keyIndex + 1) % apiKeys.Length;
+                    modelIndex = 0; // Reset models to try them on the fresh key
+                    attempts++;
+                    overloadRetries = 0;
+                    Debug.Log($"All models busy for this key. Rotating to API Key {keyIndex} and resetting models.");
+                    continue; 
                 }
 
                 // 404 = the model name is wrong or retired, so skip past it

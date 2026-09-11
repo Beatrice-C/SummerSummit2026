@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 using TMPro;
 using CardHouse;
 
@@ -211,6 +212,10 @@ public class Showdown : MonoBehaviour
             caughtMessageText.text = CaughtMessage();
             caughtMessageText.gameObject.SetActive(true);
         }
+    }
+
+    public void RestartGame() {
+    		SceneManager.LoadScene(SceneManager.GetActiveScene().name); // loads current scene
     }
 
     // an evaluator card paired with the card object it came from so we can get texture and owner
